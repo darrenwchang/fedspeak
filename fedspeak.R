@@ -179,3 +179,7 @@ fed_text_raw <-
 proc.time() - ptm
 
 # View(fed_text_raw)
+
+# reading hdf5r files
+library("hdf5r")
+file.h5 <- H5File$new('fed_text', mode="r+")
