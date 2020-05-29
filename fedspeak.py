@@ -71,14 +71,60 @@ for url in links_use:
     df = pd.DataFrame({'url': url, 'text': [text]})
     fed_text_raw = fed_text_raw.append(df, ignore_index= True)
 
+fed_text_raw = pd.DataFrame(fed_text_raw)
+
 # merging with original dataframe
 fed_text_all = pd.merge(links, fed_text_raw, how = 'outer', on = 'url')
 
 # store raw data as hdf -- too large for pickle oops
 fed_text_all.to_hdf('fedtext.h5', key='fed_text_all', mode='w', format='table')
 
-pd.set_option('expand_frame_repr', False)
-fed_text_all['text'].head(20)
+# back to testing
+
+#### TESTING
+urls = pd.DataFrame(links.loc[0:50,:])
+urls = urls['url']
+urls = urls.values.tolist()
+
+start = time.time()
+
+fed_text_raw_test = pd.DataFrame()
+
+for url in urls:
+    text = simple_get(url)
+    df = pd.DataFrame({'url': url, 'text': [text]})
+    fed_text_raw_test = fed_text_raw_test.append(df, ignore_index= True)
+# fed_text_raw = pd.concat(fed_text_raw)
+
+fed_text_raw_test.columns = fed_text_raw_test.columns.str.strip()
+
+(fed_text_raw_test
+    .groupby(['url'], group_keys=False)
+    .apply(lambda g: stack().reset_index(drop=True)))
+    #.assign(text = text.apply(pd.Series).stack().reset_index(drop=True)))
+
+fed_text_test_stack['text'] = fed_text_raw_test['text'].apply(pd.Series).stack().reset_index(drop=True)
+
+end = time.time()
+print(end - start)
+
+fed_text_raw_test = pd.DataFrame(fed_text_raw_test)
+
+# merging with original dataframe
+fed_text_all = pd.merge(urls, fed_text_raw_test, how = 'outer', on = 'url')
+
+
+# attemps to make this work
+
+fed_text_test = fed_text_all[0:20]
+fed_text_test['text'].explode
+fed_text_test['text'].apply(pd.Series).stack().reset_index(drop=True)
+pd.concat(fed_text_test, ignore_index = True)
+
+fed_text_test.to_csv('fed_text_test.csv', index = False)
+
+fed_text_raw_test = fed_text_raw[0:20]
+fed_text_raw_test.to_csv('fed_text_raw.csv', index = False)
 
 # # reading hdf (for later use, so you don't have to keep scraping the MN Fed's website)
 # fed_text_hdf = pd.read_hdf('fedtext.h5', 'fed_text_all')
@@ -90,30 +136,9 @@ fed_text_token['text'] = fed_text_token['text'].apply(lambda row: nltk.sent_toke
 
 fed_text_token['text'] = fed_text_all['text'].apply(nltk.word_tokenize)
 fed_text_token.to_csv('fed_text_token.csv', index = False)
-fed_text_token.to_pickle('fed_text_token.pkl')
 
 end = time.time()
 print(end - start)
-
-# testing
-#this all works
-
-# urls = links.loc[0:50,:]
-# urls = urls['url']
-# urls = urls.values.tolist()
-
-# start = time.time()
-# fed_text_raw = pd.DataFrame(columns = ['url', 'text'])
-
-# for url in urls:
-#     text = simple_get(url)
-#     df = pd.DataFrame({'url': url, 'text': [text]})
-#     fed_text_raw = fed_text_raw.append(df, ignore_index= True)
-
-# end = time.time()
-# print(end - start)
-
-# fed_text_all = pd.merge(urls, fed_text_raw, how = 'outer', on = 'url')
 
 # not working
 #  stop_sent = ['Back to Archive', 'serve the public', 'We examine economic issues',  'conduct world-class','We provide the banking community','We strive to advance policy']
