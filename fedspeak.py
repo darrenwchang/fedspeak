@@ -90,6 +90,7 @@ start = time.time()
 
 fed_text_raw_test = pd.DataFrame()
 
+# this works
 for url in urls:
     text = simple_get(url)
     df = pd.DataFrame({'url': url, 'text': [text]})
@@ -99,52 +100,49 @@ for url in urls:
 fed_text_raw_test.columns = fed_text_raw_test.columns.str.strip()
 
 fed_text_test = fed_text_raw_test.copy()
+fed_text_groups = fed_text_test.groupby(['url'], group_keys = False)['url'].stack(1)
+
+# fed_text_test.index = urls
+# fed_text_test['text'] = fed_text_test['text'].apply(pd.Series).stack().reset_index(drop = True)
+
+# fed_text_raw_test.stack(level = 0)
+
+# fed_text_groups = group_by_url.stack()
+
+# fed_text_groups['text'] = pd.concat(fed_text_groups['text']).reset_index(drop = True)
+
+# .apply(lambda g: g['text'].stack().reset_index(drop = True)))
+#     #.assign(text = text.apply(pd.Series).stack().reset_index(drop = True)))
+
+# fed_text_test_stack
 
 
-fed_text_test.index = urls
-fed_text_test['text'] = fed_text_test['text'].apply(pd.Series).stack().reset_index(drop = True)
+# fed_text_groups = fed_text_groups.unstack()
 
-fed_text_groups = (fed_text_test
-    .groupby(['url'], group_keys=False))
+# fed_text_test['text'].stack()
 
-fed_text_raw_test.stack(level = 0)
+# .apply(pd.Series).unstack().reset_index(drop = True)
 
-fed_text_groups = group_by_url.stack()
+# end = time.time()
+# print(end - start)
 
-fed_text_groups['text'] = pd.concat(fed_text_groups['text']).reset_index(drop = True)
+# fed_text_raw_test = pd.DataFrame(fed_text_raw_test)
 
-.apply(lambda g: g['text'].stack().reset_index(drop = True)))
-    #.assign(text = text.apply(pd.Series).stack().reset_index(drop = True)))
-
-fed_text_test_stack
+# # merging with original dataframe
+# fed_text_all = pd.merge(urls, fed_text_raw_test, how = 'outer', on = 'url')
 
 
-fed_text_groups = fed_text_groups.unstack()
+# # attemps to make this work
 
-fed_text_test['text'].stack()
+# fed_text_test = fed_text_all[0:20]
+# fed_text_test['text'].explode
+# fed_text_test['text'].apply(pd.Series).stack().reset_index(drop=True)
+# pd.concat(fed_text_test, ignore_index = True)
 
-.apply(pd.Series).unstack().reset_index(drop = True)
+# fed_text_test.to_csv('fed_text_test.csv', index = False)
 
-end = time.time()
-print(end - start)
-
-fed_text_raw_test = pd.DataFrame(fed_text_raw_test)
-
-# merging with original dataframe
-fed_text_all = pd.merge(urls, fed_text_raw_test, how = 'outer', on = 'url')
-
-
-# attemps to make this work
-
-fed_text_test = fed_text_all[0:20]
-fed_text_test['text'].explode
-fed_text_test['text'].apply(pd.Series).stack().reset_index(drop=True)
-pd.concat(fed_text_test, ignore_index = True)
-
-fed_text_test.to_csv('fed_text_test.csv', index = False)
-
-fed_text_raw_test = fed_text_raw[0:20]
-fed_text_raw_test.to_csv('fed_text_raw.csv', index = False)
+# fed_text_raw_test = fed_text_raw[0:20]
+# fed_text_raw_test.to_csv('fed_text_raw.csv', index = False)
 
 # # reading hdf (for later use, so you don't have to keep scraping the MN Fed's website)
 # fed_text_hdf = pd.read_hdf('fedtext.h5', 'fed_text_all')
