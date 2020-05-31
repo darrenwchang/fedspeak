@@ -103,6 +103,7 @@ print(end - start)
 
 #### CLEANING
 # this function for preprocessing is finnicky - may be something with the string type
+# NOT WORKING. SEE TEST ENVIRONMENT BELOW
 def preprocess(df, 
  text_field, # field that has text
  new_text_field_name # name of field that has normalized text
@@ -113,13 +114,13 @@ def preprocess(df,
     df[new_text_field_name] = df[text_field].str.lower()
     df[new_text_field_name] = df[new_text_field_name].apply(
         lambda elem: re.sub(r"(@[A-Za-z0-9]+)|([^0-9A-Za-z \t])|(\w+:\/\/\S+)|^rt|http.+?", 
-        "", elem)
+        "", str(elem))
         )  
     df[new_text_field_name] = df[new_text_field_name].apply(
-        lambda elem: re.sub("<.*?>","", elem) 
+        lambda elem: re.sub("<.*?>","", str(elem)) 
         ) # strips out tags
     df[new_text_field_name] = df[new_text_field_name].apply(
-        lambda elem: re.sub(r"\d+", "", elem)
+        lambda elem: re.sub(r"\d+", "", str(elem))
         )
     
     return df
@@ -151,7 +152,7 @@ fed_text_all.to_csv('fed_text_all.csv', index = False) # save as csv
 end = time.time()
 print(end - start)
 
-### working test code
+### working short code code
 
 # for url in urls:
 #     text = simple_get(url)
@@ -170,6 +171,27 @@ print(end - start)
 #     .reset_index(drop = True)
 #     .merge(linklist, how = 'outer', on = 'url')
 #     )
+
+### TESTING
+
+fed_text_raw['text'] = fed_text_raw['text'].to_string
+fed_text_raw['text'].str.lower()
+str.lower()
+
+fed_text_raw = preprocess(fed_text_raw, 'text', 'text')
+
+
+    df[new_text_field_name] = df[text_field].str.lower()
+    df[new_text_field_name] = df[new_text_field_name].apply(
+        lambda elem: re.sub(r"(@[A-Za-z0-9]+)|([^0-9A-Za-z \t])|(\w+:\/\/\S+)|^rt|http.+?", 
+        "", str(elem))
+        )  
+    df[new_text_field_name] = df[new_text_field_name].apply(
+        lambda elem: re.sub("<.*?>","", str(elem)) 
+        ) # strips out tags
+    df[new_text_field_name] = df[new_text_field_name].apply(
+        lambda elem: re.sub(r"\d+", "", str(elem))
+        )
 
 # # reading hdf (for later use, so you don't have to keep scraping the MN Fed's website)
 # fed_text_hdf = pd.read_hdf('fedtext.h5', 'fed_text_all')
