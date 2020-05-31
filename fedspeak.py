@@ -146,11 +146,14 @@ def unnest(df, # line-based dataframe
 fed_text_raw = preprocess(fed_text_raw, 'text', 'text')
 fed_text_all = unnest(fed_text_raw, 'text', 'word', nltk.word_tokenize, linklist)
 fed_text_all['word'] = fed_text_all['word'].str.lower() # convert to lowercase
-fed_text_all.to_hdf('fedtext.h5', key='fed_text_all', mode='w', format='table') # save as hdf
+# fed_text_all.to_hdf('fedtext.h5', key='fed_text_all', mode='w', format='table') # save as hdf
 fed_text_all.to_csv('fed_text_all.csv', index = False) # save as csv
 
 end = time.time()
 print(end - start)
+
+# # reading hdf (for later use, so you don't have to keep scraping the MN Fed's website)
+# fed_text_hdf = pd.read_hdf('fedtext.h5', 'fed_text_all')
 
 ### working shorter code
 
@@ -173,6 +176,3 @@ print(end - start)
 #     )
 
 ### TESTING
-
-# # reading hdf (for later use, so you don't have to keep scraping the MN Fed's website)
-# fed_text_hdf = pd.read_hdf('fedtext.h5', 'fed_text_all')
