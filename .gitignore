@@ -1,0 +1,5 @@
+# git ignore file for fedspeak
+
+# ignore large sets of stored data
+*.h5
+*.csv
