@@ -71,7 +71,7 @@ def log_error(e):
 def scrape(links, #dataframe of urls and other info
 ):
     """
-    function for scraping set of links to dataframe
+    function for scraping set of links to dataframe. returns data frame of raw text in lists of lists
     """
     links_use = links['url'].values.tolist() #extract urls as list
     fed_text_raw = pd.DataFrame() #empty df
@@ -94,33 +94,29 @@ def scrape(links, #dataframe of urls and other info
 
 start = time.time()
 
-# fed_text_raw = scrape(links)
-linklist = pd.DataFrame(links.loc[0:20,:])
-fed_text_raw = scrape(linklist) #test run
+fed_text_raw = scrape(links)
+# linklist = pd.DataFrame(links.loc[0:20,:]) # for testing
+# fed_text_raw = scrape(linklist) # test run
 
 end = time.time()
 print(end - start)
 
 #### CLEANING
-# this function for preprocessing is finnicky - may be something with the string type
-# NOT WORKING. SEE TEST ENVIRONMENT BELOW
+# this function for preprocessing can be finnicky - because of string types and series interactions
 def preprocess(df, 
  text_field, # field that has text
  new_text_field_name # name of field that has normalized text
  ):
     """
-    normalizes dataframes by converting it to lowercase and removing characters that do not contribute to natural text meaning
+    normalizes dataframes by converting it to lowercase and 
+    removing characters that do not contribute to natural text meaning
     """
-    df[new_text_field_name] = df[text_field].str.lower()
-    df[new_text_field_name] = df[new_text_field_name].apply(
-        lambda elem: re.sub(r"(@[A-Za-z0-9]+)|([^0-9A-Za-z \t])|(\w+:\/\/\S+)|^rt|http.+?", 
-        "", str(elem))
-        )  
-    df[new_text_field_name] = df[new_text_field_name].apply(
-        lambda elem: re.sub("<.*?>","", str(elem)) 
-        ) # strips out tags
-    df[new_text_field_name] = df[new_text_field_name].apply(
-        lambda elem: re.sub(r"\d+", "", str(elem))
+    # df[new_text_field_name] = df[text_field].str.lower()
+    df[new_text_field_name] = (df[text_field]
+        .apply(lambda elem: re.sub(r"(@[A-Za-z0-9]+)|([^0-9A-Za-z \t])|(\w+:\/\/\S+)|^rt|http.+?", 
+            "", str(elem)))
+        .apply(lambda elem: re.sub("<.*?>","", str(elem))) # strips out tags
+        .apply(lambda elem: re.sub(r"\d+", "", str(elem)))
         )
     
     return df
@@ -128,8 +124,11 @@ def preprocess(df,
 def unnest(df, # line-based dataframe
                   column_to_tokenize, # name of the column with the text
                   new_token_column_name, # what you want the column of words to be called
-                  tokenizer_function, #what tokenizer to use
+                  tokenizer_function, # what tokenizer to use = (nltk.word_tokenize)
                   original_list): # original list of data
+    """
+    unnests words from html and returns dataframe in long format merged with original list.
+    """
 
     return (df[column_to_tokenize]
                 .apply(str)
@@ -146,13 +145,14 @@ def unnest(df, # line-based dataframe
 
 fed_text_raw = preprocess(fed_text_raw, 'text', 'text')
 fed_text_all = unnest(fed_text_raw, 'text', 'word', nltk.word_tokenize, linklist)
+fed_text_all['word'] = fed_text_all['word'].str.lower() # convert to lowercase
 fed_text_all.to_hdf('fedtext.h5', key='fed_text_all', mode='w', format='table') # save as hdf
 fed_text_all.to_csv('fed_text_all.csv', index = False) # save as csv
 
 end = time.time()
 print(end - start)
 
-### working short code code
+### working shorter code
 
 # for url in urls:
 #     text = simple_get(url)
@@ -173,25 +173,6 @@ print(end - start)
 #     )
 
 ### TESTING
-
-fed_text_raw['text'] = fed_text_raw['text'].to_string
-fed_text_raw['text'].str.lower()
-str.lower()
-
-fed_text_raw = preprocess(fed_text_raw, 'text', 'text')
-
-
-    df[new_text_field_name] = df[text_field].str.lower()
-    df[new_text_field_name] = df[new_text_field_name].apply(
-        lambda elem: re.sub(r"(@[A-Za-z0-9]+)|([^0-9A-Za-z \t])|(\w+:\/\/\S+)|^rt|http.+?", 
-        "", str(elem))
-        )  
-    df[new_text_field_name] = df[new_text_field_name].apply(
-        lambda elem: re.sub("<.*?>","", str(elem)) 
-        ) # strips out tags
-    df[new_text_field_name] = df[new_text_field_name].apply(
-        lambda elem: re.sub(r"\d+", "", str(elem))
-        )
 
 # # reading hdf (for later use, so you don't have to keep scraping the MN Fed's website)
 # fed_text_hdf = pd.read_hdf('fedtext.h5', 'fed_text_all')
