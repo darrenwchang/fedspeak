@@ -19,11 +19,13 @@ import requests #website requests
 from requests.exceptions import RequestException
 from requests import get
 
-#nlp
+# nlp
 import re
 import nltk
 from nltk.tokenize import sent_tokenize
 from nltk.tokenize import word_tokenize
+from nltk.stem.snowball import SnowballStemmer
+from nltk.stem import WordNetLemmatizer
 from nltk.corpus import stopwords
 
 # importing links, which were created using excel
@@ -75,9 +77,8 @@ def scrape(links, #dataframe of urls and other info
     """
     links_use = links['url'].values.tolist() #extract urls as list
     fed_text_raw = pd.DataFrame() #empty df
-    # fed_text_raw = pd.DataFrame(columns = ['url', 'text']) #empty df with columns
 
-    # process usually takes 1.5 - 2.5 hrs. 
+    # this process usually takes 1.5 - 2.5 hrs. 
     # iterates across all the urls
     # grabs the text as a list and adds to larger dataframe
     for url in links_use:
@@ -86,9 +87,6 @@ def scrape(links, #dataframe of urls and other info
         fed_text_raw = fed_text_raw.append(df, ignore_index= True)
     fed_text_raw = pd.DataFrame(fed_text_raw)
     fed_text_raw.columns = fed_text_raw.columns.str.strip() #strip column names 
-    
-    # merging with original dataframe
-    # fed_text_all = pd.merge(links, fed_text_raw, how = 'outer', on = 'url')
 
     return fed_text_raw
 
@@ -98,10 +96,12 @@ fed_text_raw = scrape(links)
 # linklist = pd.DataFrame(links.loc[0:20,:]) # for testing
 # fed_text_raw = scrape(linklist) # test run
 
-end = time.time()
+end = time.time() # log time for this process
 print(end - start)
 
 #### CLEANING
+
+# stripping html tags and numbers
 # this function for preprocessing can be finnicky - because of string types and series interactions
 def preprocess(df, 
  text_field, # field that has text
@@ -121,6 +121,7 @@ def preprocess(df,
     
     return df
 
+# word tokenization
 def unnest(df, # line-based dataframe
                   column_to_tokenize, # name of the column with the text
                   new_token_column_name, # what you want the column of words to be called
@@ -128,6 +129,7 @@ def unnest(df, # line-based dataframe
                   original_list): # original list of data
     """
     unnests words from html and returns dataframe in long format merged with original list.
+    word tokenization in tidy text format.
     """
 
     return (df[column_to_tokenize]
@@ -144,35 +146,76 @@ def unnest(df, # line-based dataframe
               )
 
 fed_text_raw = preprocess(fed_text_raw, 'text', 'text')
-fed_text_all = unnest(fed_text_raw, 'text', 'word', nltk.word_tokenize, linklist)
+fed_text_all = unnest(fed_text_raw, 'text', 'word', nltk.word_tokenize, links)
 fed_text_all['word'] = fed_text_all['word'].str.lower() # convert to lowercase
-# fed_text_all.to_hdf('fedtext.h5', key='fed_text_all', mode='w', format='table') # save as hdf
 fed_text_all.to_csv('fed_text_all.csv', index = False) # save as csv
+# fed_text_all = pd.read_csv('fex_test_all.csv') # read csv
+
+# stemming, if you decide to stem.
+# snowball = SnowballStemmer(language = 'english')
+# def stemming(df,
+#             column_to_stem,
+#             stem_function, # what stemming function to use = snowball
+#             ):
+#     """
+#     returns stem of words in a dataframe
+#     """
+    
+#     return (df[column_to_stem]
+#                 .apply(stem_function)
+#                 )
+#
+# stemming(fed_text_all, 'word', snowball.stem)
+
+# lemmatization
+wordnet_lemmatizer = WordNetLemmatizer()
+def lemmatize(df,
+            column_to_lemmatize,
+            lemmatize_func, # lemmatizing function to use = wordnet
+            ):
+    """
+    returns root words by matching with the lemmatizing function
+    """
+    
+    return (df[column_to_lemmatize]
+                .apply(lambda word: lemmatize_func.lemmatize(word, pos = "v"))
+                )
+
+# fed_text_test['word'] = lemmatize(fed_text_test, 'word', word_net_lemmatizer) # test code
+fed_text_all['word'] = lemmatize(fed_text_all, 'word', wordnet_lemmatizer) # lemmatize
+
+# stopwords
+# make custom stop words list
+stop_words = stopwords.words("english")
+stop_words_html = ['ppwe', 'uspp', 'pwe', 'usp', 'pp', 'usbrp'] # leftover stopwords from converting html to text with 'p' tags
+stop_words_econ = ['debt', 'gross', 'crude', 'well', 'maturity', 'work', 'marginally', 'leverage'] # stop words for economic usage
+
+stop_words.extend(stop_words_html)
+stop_words.extend(stop_words_econ)
+
+# delete stopwords
+def remove_stops(df,
+                column_to_process,
+                stop_words_list, # list of stop words = stop_words
+                index_reset = True # whether you want to reset index or not
+                ):
+    """
+    function remove stopwords if data is a pandas dataframe and in tidy format e.g. long.
+    different from typical pandas format which is lists of words in wide format.
+    """
+    if index_reset == True:
+        return (df[~df[column_to_process].isin(stop_words_list)]
+                .reset_index(drop = True)) # this line resets index
+    else:
+        return df[~df[column_to_process].isin(stop_words_list)]
+
+# remove_stops(fed_text_test, 'word', stop_words) # test code
+
+fed_text_all = remove_stops(fed_text_all, 'word', stop_words)
+fed_text_all.to_csv('fed_text_all.csv', index = False) # save as csv
+
+### testing
+# fed_text_test = fed_text_all.loc[0:20,:]
 
 end = time.time()
 print(end - start)
-
-# # reading hdf (for later use, so you don't have to keep scraping the MN Fed's website)
-# fed_text_hdf = pd.read_hdf('fedtext.h5', 'fed_text_all')
-
-### working shorter code
-
-# for url in urls:
-#     text = simple_get(url)
-#     df = pd.DataFrame({'url': url, 'text': [text]})
-#     fed_text_raw_test = fed_text_raw_test.append(df, ignore_index = True)
-
-# (fed_text_test['text']
-#     .apply(str)
-#     .apply(nltk.word_tokenize)
-#     .apply(pd.Series)
-#     .stack()
-#     .reset_index(level=0)
-#     .set_index('level_0')
-#     .rename(columns={0: 'word'})
-#     .join(fed_text_test.drop('text', 1), how = 'left')
-#     .reset_index(drop = True)
-#     .merge(linklist, how = 'outer', on = 'url')
-#     )
-
-### TESTING
