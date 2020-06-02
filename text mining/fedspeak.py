@@ -8,9 +8,6 @@ import matplotlib.pyplot as plt
 
 import os #setwd
 import time #timing
-import sys
-sys.setrecursionlimit(100000)
-import h5py #saving large files
 
 # scraping
 from bs4 import BeautifulSoup
@@ -24,12 +21,12 @@ import re
 import nltk
 from nltk.tokenize import sent_tokenize
 from nltk.tokenize import word_tokenize
-from nltk.stem.snowball import SnowballStemmer
+# from nltk.stem.snowball import SnowballStemmer
 from nltk.stem import WordNetLemmatizer
 from nltk.corpus import stopwords
 
 # importing links, which were created using excel
-os.chdir('C:\\Users\\darre\\Documents\\_econ\\fedspeak')
+os.chdir('C:\\Users\\darre\\Documents\\_econ\\fedspeak\\text mining')
 links = pd.read_csv('links.csv')
 links.head(10)
 
@@ -149,7 +146,6 @@ fed_text_raw = preprocess(fed_text_raw, 'text', 'text')
 fed_text_all = unnest(fed_text_raw, 'text', 'word', nltk.word_tokenize, links)
 fed_text_all['word'] = fed_text_all['word'].str.lower() # convert to lowercase
 fed_text_all.to_csv('fed_text_all.csv', index = False) # save as csv
-# fed_text_all = pd.read_csv('fex_test_all.csv') # read csv
 
 # stemming, if you decide to stem.
 # snowball = SnowballStemmer(language = 'english')
@@ -210,12 +206,13 @@ def remove_stops(df,
         return df[~df[column_to_process].isin(stop_words_list)]
 
 # remove_stops(fed_text_test, 'word', stop_words) # test code
-
 fed_text_all = remove_stops(fed_text_all, 'word', stop_words)
-fed_text_all.to_csv('fed_text_all.csv', index = False) # save as csv
-
-### testing
-# fed_text_test = fed_text_all.loc[0:20,:]
 
 end = time.time()
 print(end - start)
+
+fed_text_all.to_csv('fed_text_all.csv', index = False) # save as csv
+# fed_text_all = pd.read_csv('fed_text_all.csv') # read csv
+
+# summary statistics
+fed_text_all['word'].value_counts().head(20)
