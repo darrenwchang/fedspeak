@@ -4,3 +4,6 @@
 *.h5
 *.csv
 *.xlsx
+
+# ignore R junk
+*.Rhistory
