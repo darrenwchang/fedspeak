@@ -1,7 +1,7 @@
-####### fedspeak
-### darren chang
+## ---- fedspeak
+## darren chang
 
-#### SETUP
+## ---- setup
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -30,7 +30,7 @@ os.chdir('C:\\Users\\darre\\Documents\\_econ\\fedspeak\\text mining')
 links = pd.read_csv('links.csv')
 links.head(10)
 
-#### SCRAPING
+## ---- scraping
 # functions for getting URLs, with error logging
 def simple_get(url):
     """
@@ -96,7 +96,7 @@ fed_text_raw = scrape(links)
 end = time.time() # log time for this process
 print(end - start)
 
-#### CLEANING
+## ---- cleaning
 
 # stripping html tags and numbers
 # this function for preprocessing can be finnicky - because of string types and series interactions
