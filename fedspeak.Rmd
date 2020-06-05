@@ -9,10 +9,112 @@ Darren Chang
 
 Last updated: `r Sys.Date()`
 
+```{r setup, include = F}
+library(reticulate)
+```
+
 ## Introduction
+[Beige Book](https://www.federalreserve.gov/monetarypolicy/beige-book-default.htm)
+
+Reference to Len Kiefer's blog post [here](http://lenkiefer.com/2018/07/29/beige-ian-statistics/).
 
 ## Text Mining
+Text mining was completed in `Python 3.7` using `BeautifulSoup`. Setup by importing `Pandas`, `BeauitfulSoup`, and `Requests`.
+
+```{python, eval = F}
+## ---- setup
+import pandas as pd
+import numpy as np
+
+import os #setwd
+import time #timing
+
+# scraping
+from bs4 import BeautifulSoup
+from contextlib import closing
+import requests # website requests
+from requests.exceptions import RequestException
+from requests import get
+```
+We scrape the [Minneapolis Fed's Beige Book Archive](https://www.minneapolisfed.org/region-and-community/regional-economic-indicators/beige-book-archive), which hosts `html` files for each Beige Book back to 1970. The links to each website to be scraped is in the `links.csv` file in this repo. Import it as a dataframe.
+
+```{python eval = F}
+links = pd.read_csv('links.csv')
+```
+Next, we define our scraping functions that iterate through the links, opens the url, and returns all of the text with the `<p>` tag. Much of the code for this portion was taken from Real Python's [guide to web scraping](https://realpython.com/python-web-scraping-practical-introduction/).
+
+```{python eval = F}
+## ---- scraping
+# functions for getting URLs, with error logging
+def simple_get(url):
+    """
+    Attempts to get the content at `url` by making an HTTP GET request.
+    If the content-type of response is some kind of HTML/XML, return the
+    text content, otherwise return None.
+    """
+    try:
+        with closing(get(url, stream = True)) as resp:
+            if is_good_response(resp):
+                soup = BeautifulSoup(resp.content, 'html.parser')
+                results = soup.find_all('p')
+                return results
+            else:
+                return None
+    except RequestException as e:
+        log_error('Error during requests to {0} : {1}'.format(url, str(e)))
+        return None
+
+
+def is_good_response(resp):
+    """
+    Returns True if the response seems to be HTML, False otherwise.
+    """
+    content_type = resp.headers['Content-Type'].lower()
+    return (resp.status_code == 200 
+            and content_type is not None 
+            and content_type.find('html') > -1)
+
+def log_error(e):
+    """
+    log errors
+    """
+    print(e)
+```
+We define another function to do the actual work of scraping. This returns a dataframe with the metadata about the website we're scraping (date, year, bank, url) merged with lists of lists of the actual text in each page.
+```{python eval = F}
+# scraping a set of links
+def scrape(links, #dataframe of urls and other info
+):
+    """
+    function for scraping set of links to dataframe. 
+    returns data frame of raw text in lists of lists
+    """
+    links_use = links['url'].values.tolist() # extract urls as list
+    fed_text_raw = pd.DataFrame() #empty df
+
+    for url in links_use:
+        text = simple_get(url)
+        df = pd.DataFrame({'url': url, 'text': [text]})
+        fed_text_raw = fed_text_raw.append(df, ignore_index = True)
+    fed_text_raw = pd.DataFrame(fed_text_raw)
+    fed_text_raw.columns = fed_text_raw.columns.str.strip() #strip column names 
+
+    return fed_text_raw
+```
+Finally, we scrape our links.
+```{python eval = F}
+fed_text_raw = scrape(links)
+```
 ## Cleaning Data
+
 ## Sentiment Analysis
+
 ## Visualization
+
 ## To do
+- GDP growth comparison
+- Regional economic comparison
+- Mapping to inflation?
+- NLP algorithms?
+- Forecasting
+- Bot to write Beige Books

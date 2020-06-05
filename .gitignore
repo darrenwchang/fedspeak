@@ -3,6 +3,7 @@
 # ignore large sets of stored data
 *.h5
 *.csv
+!links.csv
 *.xlsx
 
 # History files
