@@ -118,7 +118,7 @@ g2
 
 ggsave("sentiment_base_bank.png", plot = g2, device = png())
 
-ggplot(filter(fed_sentiment_scale, transformation == "sent_norm_mean_ma" | transformation == "norm_mean"),
+g3 <- ggplot(filter(fed_sentiment_scale, transformation == "sent_norm_mean_ma" | transformation == "norm_mean"),
     aes(x = date, y = value, color = transformation)) +
     geom_line() +
     #scale_color_viridis() +
@@ -130,6 +130,10 @@ ggplot(filter(fed_sentiment_scale, transformation == "sent_norm_mean_ma" | trans
         title = "Sentiment in Federal Reserve Beige Book",
         subtitle = "customized Loughran lexicon\npolarity = (positive-negative)/(positive+negative)",
         caption = "@darrenwchang\nSource: Federal Reserve Bank of Minneapolis")
+
+g3
+
+ggsave("sentiment_norm_ma.png", plot = g3, device = png())
 
 # use fredr for this
 # https://fred.stlouisfed.org/categories/32071
