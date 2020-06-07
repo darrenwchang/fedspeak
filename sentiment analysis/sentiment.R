@@ -12,16 +12,34 @@ setwd("C:\\Users\\darre\\Documents\\_econ\\fedspeak\\sentiment analysis")
 # setwd("C:\\Users\\darre\\Documents\\_econ\\fedspeak")
 fed_text_all <- vroom('C:\\Users\\darre\\Documents\\_econ\\fedspeak\\text mining\\fed_text_all.csv') # read csv
 
+recessions.df <- read.table(textConnection(
+    "Peak, Trough
+    1948-11-01, 1949-10-01
+    1953-07-01, 1954-05-01
+    1957-08-01, 1958-04-01
+    1960-04-01, 1961-02-01
+    1969-12-01, 1970-11-01
+    1973-11-01, 1975-03-01
+    1980-01-01, 1980-07-01
+    1981-07-01, 1982-11-01
+    1990-07-01, 1991-03-01
+    2001-03-01, 2001-11-01
+    2007-12-01, 2009-06-01"), 
+    sep=',',
+    colClasses = c('Date', 'Date'), 
+    header = TRUE)
+
 fed_sentiment <- 
     fed_text_all %>% 
     inner_join(get_sentiments("loughran")) %>% # or bing
     # inner_join(get_sentiments("bing")) %>% 
-    # count(report, year, date, sentiment) %>% 
     count(date, sentiment) %>% 
-    spread(sentiment, n, fill = 0) %>% 
+    pivot_wider(names_from = sentiment, 
+                values_from = n, 
+                values_fill = 0) %>% 
     mutate(sentiment = (positive - negative)/(positive + negative)) %>%
     mutate(date = as.Date(date, format = "%m/%d/%Y")) %>% 
-    filter(sentiment != 1) %>%  # this data is not available on the Minneapolis Fed website
+    filter(sentiment != 1) %>% 
     filter(date != "2015-07-01") %>% 
     mutate(sent_ma = rollmean(sentiment, k = 3, fill = NA))
 
@@ -30,7 +48,9 @@ fed_sentiment_bank <-
     inner_join(get_sentiments("loughran")) %>% # or bing
     # inner_join(get_sentiments("bing")) %>%
     count(report, year, date, bank, sentiment) %>% 
-    spread(sentiment, n, fill = 0) %>% 
+    pivot_wider(names_from = sentiment, 
+                values_from = n, 
+                values_fill = 0) %>% 
     mutate(sentiment = (positive - negative)/(positive+negative)) %>%
     group_by(bank) %>% 
     mutate(sent_norm = scale(sentiment)) %>% 
@@ -39,7 +59,9 @@ fed_sentiment_bank <-
     filter(sentiment != 1) %>%
     filter(date != "2015-07-01") %>% 
     select(date, bank, sent_norm, sentiment) %>% 
-    pivot_longer(-c(date, bank), names_to = "transformation", values_to = "value") %>% 
+    pivot_longer(-c(date, bank), 
+                names_to = "transformation", 
+                values_to = "value") %>% 
     mutate(transformation = as_factor(transformation))
 
 fed_sentiment_scale <- 
@@ -47,8 +69,9 @@ fed_sentiment_scale <-
     inner_join(get_sentiments("loughran")) %>% # or bing
     # inner_join(get_sentiments("bing")) %>%
     count(report, year, date, bank, sentiment) %>% 
-    spread(sentiment, n, fill = 0) %>% 
-    mutate(sentiment = (positive - negative)/(positive+negative)) %>%
+    pivot_wider(names_from = sentiment, 
+                values_from = n, 
+                values_fill = 0) %>%     mutate(sentiment = (positive - negative)/(positive+negative)) %>%
     group_by(bank) %>% 
     mutate(sent_norm = scale(sentiment)) %>% 
     ungroup() %>%
@@ -61,11 +84,17 @@ fed_sentiment_scale <-
                 # norm_sum = sum(sent_norm), 
                 # sent_sum = sum(sentiment),
                 sent_mean = mean(sentiment)) %>% 
-    mutate(sent_norm_mean_ma = rollmean(norm_mean, k = 3, fill = NA)) %>%
+    mutate(sent_norm_mean_ma = rollmean(norm_mean, 
+            k = 3, 
+            fill = NA)) %>%
     # mutate(sent_norm_sum_ma = rollmean(norm_sum, k = 3, fill = NA)) %>%
-    mutate(sent_mean_ma = rollmean(sent_mean, k = 3, fill = NA)) %>%
+    mutate(sent_mean_ma = rollmean(sent_mean, 
+            k = 3, 
+            fill = NA)) %>%
     # mutate(sent_sum_ma = rollmean(sent_sum, k = 3, fill = NA))  %>% 
-    pivot_longer(-date, names_to = "transformation", values_to = "value") %>% 
+    pivot_longer(-date, 
+                names_to = "transformation", 
+                values_to = "value") %>% 
     mutate(transformation = as_factor(transformation))
 
 # bar plot
@@ -95,7 +124,15 @@ g1 <- ggplot(fed_sentiment,
         y = "polarity",
         title = "Sentiment in Federal Reserve Beige Book",
         subtitle = "customized Loughran lexicon\npolarity = (positive-negative)/(positive+negative)",
-        caption = "@darrenwchang\nSource: Federal Reserve Bank of Minneapolis")
+        caption = "@darrenwchang\nSource: Federal Reserve Bank of Minneapolis\nShaded areas NBER recessions") +
+    geom_rect(data=recessions.df, 
+                    inherit.aes = F, 
+                aes(xmin = Peak, 
+                    xmax = Trough, 
+                    ymin = -Inf, 
+                    ymax = +Inf), 
+                    fill='darkgray', 
+                    alpha=0.5)
 
 g1
 
@@ -111,7 +148,7 @@ g2 <- ggplot(fed_sentiment_bank,
         y = "polarity",
         title = "Sentiment in Federal Reserve Beige Book",
         subtitle = "customized Loughran lexicon\npolarity = (positive-negative)/(positive+negative)",
-        caption = "@darrenwchang\nSource: Federal Reserve Bank of Minneapolis") +
+        caption = "@darrenwchang\nSource: Federal Reserve Bank of Minneapolis\nShaded areas NBER recessions") +
     facet_wrap(~bank, scales = 'free_x', ncol = 5)
 
 g2
@@ -129,7 +166,7 @@ g3 <- ggplot(filter(fed_sentiment_scale, transformation == "sent_norm_mean_ma" |
         y = "polarity",
         title = "Sentiment in Federal Reserve Beige Book",
         subtitle = "customized Loughran lexicon\npolarity = (positive-negative)/(positive+negative)",
-        caption = "@darrenwchang\nSource: Federal Reserve Bank of Minneapolis")
+        caption = "@darrenwchang\nSource: Federal Reserve Bank of Minneapolis\nShaded areas NBER recessions")
 
 g3
 

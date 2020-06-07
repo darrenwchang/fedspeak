@@ -45,6 +45,7 @@ We scrape the [Minneapolis Fed's Beige Book Archive](https://www.minneapolisfed.
 ```{python eval = T}
 links = pd.read_csv('C:/Users/darre/Documents/_econ/fedspeak/text mining/links.csv')
 links.head(20)
+links.tail(20)
 ```
 Next, we define our scraping functions that iterate through the links, opens the url, and returns all of the text with the `<p>` tag. Much of the code for this portion was taken from Real Python's [guide to web scraping](https://realpython.com/python-web-scraping-practical-introduction/).
 
@@ -137,7 +138,8 @@ def preprocess(df,
 ```
 
 ### Tokenization
-We want to convert our bag of words for each report into the tidy text format, which Julia Silge and David Robinson define in [*Text Mining in R*](https://www.tidytextmining.com/tidytext.html) as:
+We want to convert our bag of words for each report into the tidy text format, which Julia Silge and David Robinson define in Chapter 1 of [*Text Mining in R*](https://www.tidytextmining.com/tidytext.html) as:
+
 >We thus define the tidy text format as being **a table with one-token-per-row**. A token is a meaningful unit of text, such as a word, that we are interested in using for analysis, and tokenization is the process of splitting text into tokens. This one-token-per-row structure is in contrast to the ways text is often stored in current analyses, perhaps as strings or in a document-term matrix. For tidy text mining, the **token** that is stored in each row is most often a single word, but can also be an n-gram, sentence, or paragraph. In the tidytext package, we provide functionality to tokenize by commonly used units of text like these and convert to a one-term-per-row format.
 
 You may ask: why would you want to use a `tidy` format if we're using Python? This is a good question, but here were some of my reasons:
@@ -186,10 +188,13 @@ fed_text_all = unnest(fed_text_raw, 'text', 'word', nltk.word_tokenize, links)
 fed_text_all['word'] = fed_text_all['word'].str.lower() # convert to lowercase
 fed_text_all.to_csv('fed_text_all.csv', index = False) # save as csv
 ```
+#### Dask
+
 If you find that `pandas` is too slow for these applications or for your data, you may want to look into `dask`, which uses multi-core processing in addition to other goodies to speed things up for large datasets. Shikhar Chauhan has a blog post about using dask for text pre-processing at [MindOrks](https://medium.com/mindorks/speeding-up-text-pre-processing-using-dask-45cc3ede1366).  
 
 ### Stemming
 Here's a stemming function that would work on a `tidy` formatted dataframe of words. I didn't end up using stemming (and instead used lemmatization) because I found stemming removed too much --- what should have been words simply became nonsensical stems. [DataCamp](http://datacamp.co/) has a tutorial for both stemming and lemmatization and compares the two methods [here](https://www.datacamp.com/community/tutorials/stemming-lemmatization-python).
+
 ```{python, eval = F}
 snowball = SnowballStemmer(language = 'english')
 def stemming(df,
@@ -208,7 +213,7 @@ def stemming(df,
 ```
 
 ### Lemmatization
-Instead of stemming, I lemmatized the text by comparing the verbs in the data to the WordNet corpus in `nltk`. This reduces a word like "swimming" to "swim," which dictionaries pick up better for sentiment analysis.
+Instead of stemming, I lemmatized the text by comparing the verbs in the data to the WordNet corpus in `NLTK`. This reduces a word like "swimming" to "swim," which dictionaries pick up better for sentiment analysis.
 
 ```{python, eval = F}
 wordnet_lemmatizer = WordNetLemmatizer()
@@ -228,7 +233,7 @@ fed_text_all['word'] = lemmatize(fed_text_all, 'word', wordnet_lemmatizer) # lem
 ```
 
 ### Stopwords
-To finish the cleaning process, I remove stop words from the data, which keeps roughly 60 percent of the raw data (the csv file becomes 600 MB). Stop words are words that do not contribute to the meaning of a selection. The list of `nltk` stopwords, which is used in this code is available in [this resource](https://www.nltk.org/book/ch02.html) for the package.
+To finish the cleaning process, I remove stop words from the data, which keeps roughly 60 percent of the raw data (the csv file becomes 600 MB). Stop words are words that do not contribute to the meaning of a selection. The list of `NLTK` stopwords, which is used in this code is available in [this resource](https://www.nltk.org/book/ch02.html) for the package.
 
 I add to the stop words list:
 
@@ -241,7 +246,8 @@ I add to the stop words list:
 ```{python, eval = F}
 # make custom stop words list
 stop_words = stopwords.words("english")
-stop_words_html = ['ppwe', 'uspp', 'pwe', 'usp', 'pp', 'usbrp'] # leftover stopwords from converting html to text with 'p' tags
+stop_words_html = ['ppwe', 'uspp', 'pwe', 'usp', 'pp', 'usbrp'] # leftover stopwords from converting html to text 
+# with 'p' tags
 stop_words_econ = ['debt', 'gross', 'crude', 'well', 'maturity', 'work', 'marginally', 'leverage'] # stop words for economic usage
 
 stop_words.extend(stop_words_html)
@@ -266,11 +272,11 @@ def remove_stops(df,
 # remove_stops(fed_text_test, 'word', stop_words) # test code
 fed_text_all = remove_stops(fed_text_all, 'word', stop_words)
 ```
-We save the cleaned data as a csv to read it into `R` for sentiment analysis.
+We save the cleaned data as a csv to read it later for sentiment analysis.
 ```{python eval = F}
 fed_text_all.to_csv('fed_text_all.csv', index = False) # save as csv
 ```
-But before that, some summary statistics:
+But before that, some word frequency summary statistics:
 ```{python eval = T}
 # summary statistics
 fed_text_all = pd.read_csv('C:/Users/darre/Documents/_econ/fedspeak/text mining/fed_text_all.csv') # read csv
@@ -278,7 +284,129 @@ fed_text_all['word'].value_counts().head(20)
 ```
 ## Sentiment Analysis
 
-## Visualization
+### in R
+The `tidytext` package has a convenient `get_sentiments()` function, which essentially uses a merge method to match a pre-defined dictionary to the data in tidy format. We use python to emulate this method in a following section.
+
+Let's first load some packages and set up our working environment. I use the `vroom` package that is part of the `tidyverse` to load in the file with all of the words. It is significantly faster and easier to use than any `read_csv` function that I've used before.
+
+```{r echo = T, results = 'hide', warning = F}
+library(tidyverse)
+library(tidytext)
+library(vroom)
+library(ggthemes)
+library(zoo)
+library(viridis)
+
+setwd("C:\\Users\\darre\\Documents\\_econ\\fedspeak\\sentiment analysis")
+fed_text_all <- vroom('C:\\Users\\darre\\Documents\\_econ\\fedspeak\\text mining\\fed_text_all.csv') # read csv
+
+recessions.df <- read.table(textConnection(
+    "Peak, Trough
+    1948-11-01, 1949-10-01
+    1953-07-01, 1954-05-01
+    1957-08-01, 1958-04-01
+    1960-04-01, 1961-02-01
+    1969-12-01, 1970-11-01
+    1973-11-01, 1975-03-01
+    1980-01-01, 1980-07-01
+    1981-07-01, 1982-11-01
+    1990-07-01, 1991-03-01
+    2001-03-01, 2001-11-01
+    2007-12-01, 2009-06-01"), 
+    sep=',',
+    colClasses = c('Date', 'Date'), 
+    header = TRUE)
+
+```
+We find the polarity from our data by report with the `inner_join` method in *Text Mining in R*:
+
+```{r warning = F}
+fed_sentiment <- 
+    fed_text_all %>% 
+    inner_join(get_sentiments("loughran")) %>%
+    count(date, sentiment) %>% 
+    pivot_wider(names_from = sentiment, 
+                values_from = n, 
+                values_fill = 0) %>% 
+    mutate(sentiment = (positive - negative)/(positive + negative)) %>%
+    mutate(date = as.Date(date, format = "%m/%d/%Y")) %>% 
+    filter(sentiment != 1) %>% 
+    filter(date != "2015-07-01") %>% 
+    mutate(sent_ma = rollmean(sentiment, k = 3, fill = NA))
+```
+
+Much of this is based on Len Kiefer's code, which is linked to in an earlier part of this post. A few key differences: 
+
+* I use the [Loughran-McDonald](https://sraf.nd.edu/textual-analysis/resources/) dictionary instead of the Bing dictionary. I compare the results later --- they are similar, although the finance-specific lexicon seems to fit the context better.
+* I substituted `pivot_wider` for `spread` as `spread` is beginning to become deprecated.
+* The Minneapolis Fed doesn't have data for June 2015 (not sure the reason), so I filter that out.
+* I use the `zoo` package to generate rolling means based on quarters, since there is quite a bit of noise.
+
+Here is the plot:
+
+```{r warning = F}
+ggplot(fed_sentiment,
+    aes(x = date)) +
+    geom_line(aes(y = sentiment), color = 'blue') +
+    geom_line(aes(y = sent_ma), color = 'red') +
+    theme_fivethirtyeight() +
+    scale_x_date(
+        #breaks = "5 years", 
+    limits = as.Date(c("1970-01-01","2020-06-01")),
+    date_labels = "%Y") +
+    labs(x = "Beige Book Report (~8/year)",
+        y = "polarity",
+        title = "Sentiment in Federal Reserve Beige Book",
+        subtitle = "customized Loughran lexicon\npolarity = (positive-negative)/(positive+negative)",
+        caption = "Source: Federal Reserve Bank of Minneapolis\n
+        Shaded areas NBER recessions") +
+    geom_rect(data=recessions.df, 
+                    inherit.aes = F, 
+                aes(xmin = Peak, 
+                    xmax = Trough, 
+                    ymin = -Inf, 
+                    ymax = +Inf), 
+                    fill='darkgray', 
+                    alpha=0.5)
+```
+
+Even this raw data, without any adjustments, appears to track recessions well. It's not clear if this is a leading or lagging indicator, or neither. Note that the moving averages may lose some of the power in terms of matching recessions.
+
+We can also plot the sentiment by bank using the `facet_wrap` object in `ggplot2`. This yields interesting results: the authors at the different Federal Reserve banks have different scales, thus changing the composition of the data when each bank (and the national summary) is given equal weight.
+
+```{r warning = F, echo = F}
+fed_bank_plot <- 
+    fed_text_all %>% 
+    inner_join(get_sentiments("loughran")) %>% # or bing
+    # inner_join(get_sentiments("bing")) %>% 
+    count(date, bank, sentiment) %>% 
+    pivot_wider(names_from = sentiment, 
+                values_from = n, 
+                values_fill = 0) %>% 
+    mutate(sentiment = (positive - negative)/(positive + negative)) %>%
+    mutate(date = as.Date(date, format = "%m/%d/%Y")) %>% 
+    filter(sentiment != 1) %>% 
+    filter(date != "2015-07-01")
+
+ggplot(fed_bank_plot,
+    aes(x = date, y = sentiment)) +
+    geom_line(color = 'blue') +
+    theme_fivethirtyeight() +
+    # scale_x_date(limits = as.Date(c("1970-01-01","2020-01-01")),
+    # date_labels = "%Y") +
+    labs(x = "Beige Book Report (~8/year)",
+        y = "polarity",
+        title = "Sentiment in Beige Book by Federal Reserve Bank",
+        subtitle = "customized Loughran lexicon\npolarity = (positive-negative)/(positive+negative)",
+        caption = "Source: Federal Reserve Bank of Minneapolis\nShaded areas NBER recessions") +
+    facet_wrap(~bank, scales = 'free_x', ncol = 5)
+```
+
+### in Python
+
+#### Dictionary Construction
+
+#### Get Sentiments
 
 ## To do
 - GDP growth comparison
