@@ -9,19 +9,11 @@ import matplotlib.pyplot as plt
 import os #setwd
 import time #timing
 
-import re
-import sys
-sys.path.append('C:\\Users\\darre\\Documents\\_econ\\fedspeak\\sentiment analysis')  # Modify to identify path for custom modules
-import Load_MasterDictionary as LM
+from sklearn_pandas import DataFrameMapper #scikit learn for pandas
 
 os.chdir('C:\\Users\\darre\\Documents\\_econ\\fedspeak\\sentiment analysis')
 fed_text_all = pd.read_csv('C:\\Users\\darre\\Documents\\_econ\\fedspeak\\text mining\\fed_text_all.csv') # read csv
 fed_text_all.head(10)
-
-# User defined file pointer to LM dictionary
-master_dictionary = r'C:\\Users\\darre\\Documents\\_econ\\fedspeak\\sentiment analysis\\LoughranMcDonald_MasterDictionary_2018.csv'
-
-lm_dictionary = LM.load_masterdictionary(master_dictionary, True)
 
 lm_dict = (pd.read_csv('loughran_mcdonald.csv', header = 0)
                 .fillna('')
@@ -71,8 +63,16 @@ def get_sentiment(
 
 fed_sentiment = get_sentiment(fed_text_all, lm_dict)
 
-(fed_sentiment
+fed_sentiment = (fed_sentiment
     .groupby(['report','date','url','year','month','bank','sentiment'])
     .count()
-    .unstack(-1, fill_value = 0)
+    .unstack(-1, fill_value = 0))
+scaler = StandardScaler()
+(fed_sentiment
+    .assign(polarity = lambda x: (fed_sentiment['word']['positive']-fed_sentiment['word']['negative'])/(fed_sentiment['word']['positive']+fed_sentiment['word']['negative']))
+    .groupby('bank')
 )
+
+# mapper = DataFrameMapper([(df.columns, StandardScaler())])
+# scaled_features = mapper.fit_transform(df.copy(), 4)
+# scaled_features_df = pd.DataFrame(scaled_features, index=df.index, columns=df.columns)

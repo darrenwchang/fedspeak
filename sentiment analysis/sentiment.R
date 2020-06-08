@@ -71,7 +71,8 @@ fed_sentiment_scale <-
     count(report, year, date, bank, sentiment) %>% 
     pivot_wider(names_from = sentiment, 
                 values_from = n, 
-                values_fill = 0) %>%     mutate(sentiment = (positive - negative)/(positive+negative)) %>%
+                values_fill = 0) %>%     
+    mutate(sentiment = (positive - negative)/(positive+negative)) %>%
     group_by(bank) %>% 
     mutate(sent_norm = scale(sentiment)) %>% 
     ungroup() %>%
@@ -81,17 +82,13 @@ fed_sentiment_scale <-
     select(date, sent_norm, bank, sentiment) %>% 
     group_by(date) %>% 
     summarize(norm_mean = mean(sent_norm),
-                # norm_sum = sum(sent_norm), 
-                # sent_sum = sum(sentiment),
-                sent_mean = mean(sentiment)) %>% 
+            sent_mean = mean(sentiment)) %>% 
     mutate(sent_norm_mean_ma = rollmean(norm_mean, 
             k = 3, 
             fill = NA)) %>%
-    # mutate(sent_norm_sum_ma = rollmean(norm_sum, k = 3, fill = NA)) %>%
     mutate(sent_mean_ma = rollmean(sent_mean, 
             k = 3, 
             fill = NA)) %>%
-    # mutate(sent_sum_ma = rollmean(sent_sum, k = 3, fill = NA))  %>% 
     pivot_longer(-date, 
                 names_to = "transformation", 
                 values_to = "value") %>% 
@@ -142,31 +139,63 @@ g2 <- ggplot(fed_sentiment_bank,
     aes(x = date, y = value, color = transformation)) +
     geom_line() +
     theme_fivethirtyeight() +
-    # scale_x_date(limits = as.Date(c("1970-01-01","2020-01-01")),
-    # date_labels = "%Y") +
+    scale_x_date(
+        limits = as.Date(c("1970-01-01","2020-06-01")),
+        date_labels = "%Y") +
+    scale_color_manual(
+        name = "Transformation",
+        labels = c('Scaled Polarity', 'Raw Polarity'),
+        values = c('blue', 'red')) +
     labs(x = "Beige Book Report (~8/year)",
         y = "polarity",
         title = "Sentiment in Federal Reserve Beige Book",
         subtitle = "customized Loughran lexicon\npolarity = (positive-negative)/(positive+negative)",
         caption = "@darrenwchang\nSource: Federal Reserve Bank of Minneapolis\nShaded areas NBER recessions") +
-    facet_wrap(~bank, scales = 'free_x', ncol = 5)
+    facet_wrap(~bank, scales = 'free_x', ncol = 5,
+    labeller = as_labeller(c('at' = 'Atlanta', 'bo' = 'Boston',
+                    'ch' = 'Chicago', 'cl' = 'Cleveland',
+                    'da' = 'Dallas', 'kc' = 'Kansas City',
+                    'mi' = 'Minneapolis', 'ny' = 'New York',
+                    'ph' = 'Philadelphia', 'ri' = 'Richmond',
+                    'sf' = 'San Francisco', 'sl' = 'St. Louis',
+                    'su' = 'National Summary'))) +
+    geom_rect(data = recessions.df, 
+                    inherit.aes = F, 
+                aes(xmin = Peak, 
+                    xmax = Trough, 
+                    ymin = -Inf, 
+                    ymax = +Inf), 
+                    fill='darkgray', 
+                    alpha=0.5)
 
 g2
 
 ggsave("sentiment_base_bank.png", plot = g2, device = png())
 
-g3 <- ggplot(filter(fed_sentiment_scale, transformation == "sent_norm_mean_ma" | transformation == "norm_mean"),
+g3 <- ggplot(filter(fed_sentiment_scale, 
+transformation == "sent_norm_mean_ma" | transformation == "norm_mean" | transformation == 'sent_mean'),
     aes(x = date, y = value, color = transformation)) +
     geom_line() +
-    #scale_color_viridis() +
     theme_fivethirtyeight() +
-    # scale_x_date(limits = as.Date(c("1970-01-01","2020-01-01")),
-    # date_labels = "%Y") +
+    scale_x_date(limits = as.Date(c("1970-01-01","2020-06-01")),
+                date_labels = "%Y") +
+    scale_color_manual(
+        name = "Transformation",
+        labels = c('Scaled Polarity', 'Raw Polarity', 'Scaled Polarity (3 mo. mvg avg)'),
+        values = c('red', 'green', 'navy')) +
     labs(x = "Beige Book Report (~8/year)",
         y = "polarity",
         title = "Sentiment in Federal Reserve Beige Book",
         subtitle = "customized Loughran lexicon\npolarity = (positive-negative)/(positive+negative)",
-        caption = "@darrenwchang\nSource: Federal Reserve Bank of Minneapolis\nShaded areas NBER recessions")
+        caption = "@darrenwchang\nSource: Federal Reserve Bank of Minneapolis\nShaded areas NBER recessions") +
+    geom_rect(data = recessions.df, 
+                    inherit.aes = F, 
+                aes(xmin = Peak, 
+                    xmax = Trough, 
+                    ymin = -Inf, 
+                    ymax = +Inf), 
+                    fill='darkgray', 
+                    alpha=0.5)
 
 g3
 
