@@ -295,7 +295,6 @@ library(tidytext)
 library(vroom)
 library(ggthemes)
 library(zoo)
-library(viridis)
 
 setwd("C:\\Users\\darre\\Documents\\_econ\\fedspeak\\sentiment analysis")
 fed_text_all <- vroom('C:\\Users\\darre\\Documents\\_econ\\fedspeak\\text mining\\fed_text_all.csv') # read csv
@@ -326,7 +325,8 @@ We find the polarity from our data by report with the `inner_join` method in *Te
 ```{r warning = F}
 fed_sentiment <- 
     fed_text_all %>% 
-    inner_join(get_sentiments("loughran")) %>%
+    inner_join(get_sentiments("loughran")) %>% # or bing
+    # inner_join(get_sentiments("bing")) %>% 
     count(date, sentiment) %>% 
     pivot_wider(names_from = sentiment, 
                 values_from = n, 
@@ -335,7 +335,12 @@ fed_sentiment <-
     mutate(date = as.Date(date, format = "%m/%d/%Y")) %>% 
     filter(sentiment != 1) %>% 
     filter(date != "2015-07-01") %>% 
-    mutate(sent_ma = rollmean(sentiment, k = 3, fill = NA))
+    mutate(sent_ma = rollmean(sentiment, k = 3, fill = NA)) %>% 
+    select(date, sentiment, sent_ma) %>% 
+    pivot_longer(-date,
+            names_to = 'transformation',
+            values_to = 'value') %>% 
+    mutate(transformation = as_factor(transformation))
 ```
 
 Much of this is based on Len Kiefer's code, which is linked to in an earlier part of this post. A few key differences: 
@@ -349,9 +354,11 @@ Here is the plot:
 
 ```{r warning = F}
 ggplot(fed_sentiment,
-    aes(x = date)) +
-    geom_line(aes(y = sentiment), color = 'blue') +
-    geom_line(aes(y = sent_ma), color = 'red') +
+    aes(x = date,
+        y = value,
+        color = transformation)) +
+    geom_line(aes()) +
+    scale_color_stata() + 
     theme_fivethirtyeight() +
     scale_x_date(
         #breaks = "5 years", 
@@ -361,8 +368,7 @@ ggplot(fed_sentiment,
         y = "polarity",
         title = "Sentiment in Federal Reserve Beige Book",
         subtitle = "customized Loughran lexicon\npolarity = (positive-negative)/(positive+negative)",
-        caption = "Source: Federal Reserve Bank of Minneapolis\n
-        Shaded areas NBER recessions") +
+        caption = "@darrenwchang\nSource: Federal Reserve Bank of Minneapolis\nShaded areas NBER recessions") +
     geom_rect(data=recessions.df, 
                     inherit.aes = F, 
                 aes(xmin = Peak, 
@@ -404,7 +410,8 @@ ggplot(fed_bank_plot,
         subtitle = "customized Loughran lexicon\npolarity = (positive-negative)/(positive+negative)",
         caption = "Source: Federal Reserve Bank of Minneapolis\nShaded areas NBER recessions") +
     facet_wrap(~bank, scales = 'free_x', ncol = 5,
-        labeller = as_labeller(c('at' = 'Atlanta', 'bo' = 'Boston',
+        labeller = as_labeller(c(
+                    'at' = 'Atlanta', 'bo' = 'Boston',
                     'ch' = 'Chicago', 'cl' = 'Cleveland',
                     'da' = 'Dallas', 'kc' = 'Kansas City',
                     'mi' = 'Minneapolis', 'ny' = 'New York',
@@ -449,10 +456,9 @@ ggplot(fed_sentiment_bank,
     scale_x_date(
         limits = as.Date(c("1970-01-01","2020-06-01")),
         date_labels = "%Y") +
-    scale_color_manual(
+    scale_color_stata(
         name = "Transformation",
-        labels = c('Scaled Polarity', 'Raw Polarity'),
-        values = c('blue', 'red')) +
+        labels = c('Scaled Polarity', 'Raw Polarity')) +
     labs(x = "Beige Book Report (~8/year)",
         y = "polarity",
         title = "Sentiment in Federal Reserve Beige Book",
@@ -516,10 +522,11 @@ transformation == "sent_norm_mean_ma" | transformation == "norm_mean" | transfor
     theme_fivethirtyeight() +
     scale_x_date(limits = as.Date(c("1970-01-01","2020-06-01")),
                 date_labels = "%Y") +
-    scale_color_manual(
+    scale_color_stata(
         name = "Transformation",
-        labels = c('Scaled Polarity', 'Raw Polarity', 'Scaled Polarity (3 mo. mvg avg)'),
-        values = c('red', 'green', 'navy')) +
+        labels = c('Scaled Polarity', 
+                    'Raw Polarity', 
+                    'Scaled Polarity (3 mo. mvg avg)')) +
     labs(x = "Beige Book Report (~8/year)",
         y = "polarity",
         title = "Sentiment in Federal Reserve Beige Book",

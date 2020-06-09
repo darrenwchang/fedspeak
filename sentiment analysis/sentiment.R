@@ -1,17 +1,20 @@
 # sentiment analysis (and visualization) with tidytext
 # darren chang
 
+## ---- SETUP
 library(tidyverse)
 library(tidytext)
 library(vroom)
 library(ggthemes)
 library(zoo)
-library(viridis)
+library(tidyquant)
+library(lubridate)
 
 setwd("C:\\Users\\darre\\Documents\\_econ\\fedspeak\\sentiment analysis")
 # setwd("C:\\Users\\darre\\Documents\\_econ\\fedspeak")
 fed_text_all <- vroom('C:\\Users\\darre\\Documents\\_econ\\fedspeak\\text mining\\fed_text_all.csv') # read csv
 
+## ---- RECESSIONS
 recessions.df <- read.table(textConnection(
     "Peak, Trough
     1948-11-01, 1949-10-01
@@ -41,7 +44,12 @@ fed_sentiment <-
     mutate(date = as.Date(date, format = "%m/%d/%Y")) %>% 
     filter(sentiment != 1) %>% 
     filter(date != "2015-07-01") %>% 
-    mutate(sent_ma = rollmean(sentiment, k = 3, fill = NA))
+    mutate(sent_ma = rollmean(sentiment, k = 3, fill = NA)) %>% 
+    select(date, sentiment, sent_ma) %>% 
+    pivot_longer(-date,
+            names_to = 'transformation',
+            values_to = 'value') %>% 
+    mutate(transformation = as_factor(transformation))
 
 fed_sentiment_bank <- 
     fed_text_all %>% 
@@ -94,6 +102,8 @@ fed_sentiment_scale <-
                 values_to = "value") %>% 
     mutate(transformation = as_factor(transformation))
 
+## -- GRAPHS
+
 # bar plot
 # ggplot(fed_sentiment,
 #     aes(date, sentiment, fill = sentiment > 0)) +
@@ -109,9 +119,11 @@ fed_sentiment_scale <-
 
 # line plot
 g1 <- ggplot(fed_sentiment,
-    aes(x = date)) +
-    geom_line(aes(y = sentiment), color = 'blue') +
-    geom_line(aes(y = sent_ma), color = 'red') +
+    aes(x = date,
+        y = value,
+        color = transformation)) +
+    geom_line(aes()) +
+    scale_color_stata() + 
     theme_fivethirtyeight() +
     scale_x_date(
         #breaks = "5 years", 
@@ -142,10 +154,9 @@ g2 <- ggplot(fed_sentiment_bank,
     scale_x_date(
         limits = as.Date(c("1970-01-01","2020-06-01")),
         date_labels = "%Y") +
-    scale_color_manual(
+    scale_color_stata(
         name = "Transformation",
-        labels = c('Scaled Polarity', 'Raw Polarity'),
-        values = c('blue', 'red')) +
+        labels = c('Scaled Polarity', 'Raw Polarity')) +
     labs(x = "Beige Book Report (~8/year)",
         y = "polarity",
         title = "Sentiment in Federal Reserve Beige Book",
@@ -179,10 +190,11 @@ transformation == "sent_norm_mean_ma" | transformation == "norm_mean" | transfor
     theme_fivethirtyeight() +
     scale_x_date(limits = as.Date(c("1970-01-01","2020-06-01")),
                 date_labels = "%Y") +
-    scale_color_manual(
+    scale_color_stata(
         name = "Transformation",
-        labels = c('Scaled Polarity', 'Raw Polarity', 'Scaled Polarity (3 mo. mvg avg)'),
-        values = c('red', 'green', 'navy')) +
+        labels = c('Scaled Polarity', 
+                    'Raw Polarity', 
+                    'Scaled Polarity (3 mo. mvg avg)')) +
     labs(x = "Beige Book Report (~8/year)",
         y = "polarity",
         title = "Sentiment in Federal Reserve Beige Book",
@@ -201,5 +213,67 @@ g3
 
 ggsave("sentiment_norm_ma.png", plot = g3, device = png())
 
-# use fredr for this
+## ---- INDICATOR COMPARISON
 # https://fred.stlouisfed.org/categories/32071
+
+# US real GDP
+gdp_tickers <- c("A191RL1Q225SBEA", "A191RO1Q156NBEA")
+gdp <- tq_get(gdp_tickers, get = "economic.data", from = "1970-01-01") %>% 
+    mutate(series = case_when(symbol == "A191RL1Q225SBEA" ~ "gdp_pch",
+                            symbol == "A191RO1Q156NBEA" ~ "gdp_pca")) %>% 
+    select(-symbol) %>% 
+    rename(value = price)
+
+sent_gdp <- 
+    fed_sentiment_scale %>% 
+    filter(transformation == "sent_norm_mean_ma" | transformation == "norm_mean") %>% 
+    mutate(series = case_when(transformation == "norm_mean" ~ "polarity",
+                            transformation == "sent_norm_mean_ma" ~ "polarity_ma")) %>% 
+    select(-transformation) %>% 
+    mutate(quarter = quarter(date, 
+            with_year = T, 
+            fiscal_start = 1)) %>% 
+    mutate(q_date = as.Date(as.yearqtr(as.character(quarter), 
+                            format = "%Y.%q"))) %>% 
+    group_by(quarter, series) %>% 
+    mutate(q_value = mean(value)) %>% 
+    distinct(q_value, .keep_all = T) %>% 
+    ungroup() %>% 
+    select(-value, -date, -quarter) %>%
+    rename(date = q_date) %>% 
+    rename(value = q_value) %>% 
+    bind_rows(gdp)
+
+ggplot(sent_gdp,
+    aes(x = date, y = value, color = series)) +
+    geom_line() +
+    theme_fivethirtyeight() +
+    scale_x_date(limits = as.Date(c("1970-01-01","2020-06-01")),
+                date_labels = "%Y") +
+    #scale_color_stata(
+    #    name = "Transformation",
+    #    labels = c('Scaled Polarity', 
+    #                'Raw Polarity', 
+    #                'Scaled Polarity (3 mo. mvg avg)')) +
+    labs(x = "Beige Book Report (~8/year)",
+        y = "polarity",
+        title = "Beige Book Sentiment and GDP Growth",
+        subtitle = "customized Loughran lexicon\npolarity = (positive-negative)/(positive+negative)",
+        caption = "@darrenwchang\nSource: Federal Reserve Bank of Minneapolis\nShaded areas NBER recessions") +
+    geom_rect(data = recessions.df, 
+                    inherit.aes = F, 
+                aes(xmin = Peak, 
+                    xmax = Trough, 
+                    ymin = -Inf, 
+                    ymax = +Inf), 
+                    fill='darkgray', 
+                    alpha=0.5)
+
+sent_gdp_wide <- 
+    sent_gdp %>% 
+    pivot_wider(
+        names_from = series,
+        values_from = value)
+
+summary(lm(polarity ~ gdp_pch,
+    data = sent_gdp_wide))
