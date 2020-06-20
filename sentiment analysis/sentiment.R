@@ -9,6 +9,7 @@ library(ggthemes)
 library(zoo)
 library(tidyquant)
 library(lubridate)
+library(ggfortify)
 
 setwd("C:\\Users\\darre\\Documents\\_econ\\fedspeak\\sentiment analysis")
 # setwd("C:\\Users\\darre\\Documents\\_econ\\fedspeak")
@@ -214,7 +215,6 @@ g3
 ggsave("sentiment_norm_ma.png", plot = g3, device = png())
 
 ## ---- INDICATOR COMPARISON
-# https://fred.stlouisfed.org/categories/32071
 
 # US real GDP
 gdp_tickers <- c("A191RL1Q225SBEA", "A191RO1Q156NBEA")
@@ -222,7 +222,12 @@ gdp <- tq_get(gdp_tickers, get = "economic.data", from = "1970-01-01") %>%
     mutate(series = case_when(symbol == "A191RL1Q225SBEA" ~ "gdp_pch",
                             symbol == "A191RO1Q156NBEA" ~ "gdp_pca")) %>% 
     select(-symbol) %>% 
-    rename(value = price)
+    rename(value = price) 
+
+gdp_scale <- gdp %>% 
+    group_by(series) %>% 
+    mutate(value = scale(value)) %>% 
+    ungroup()
 
 sent_gdp <- 
     fed_sentiment_scale %>% 
@@ -244,17 +249,32 @@ sent_gdp <-
     rename(value = q_value) %>% 
     bind_rows(gdp)
 
-ggplot(sent_gdp,
+sent_gdp_scale <- 
+    fed_sentiment_scale %>% 
+    filter(transformation == "sent_norm_mean_ma" | transformation == "norm_mean") %>% 
+    mutate(series = case_when(transformation == "norm_mean" ~ "polarity",
+                            transformation == "sent_norm_mean_ma" ~ "polarity_ma")) %>% 
+    select(-transformation) %>% 
+    mutate(quarter = quarter(date, 
+            with_year = T, 
+            fiscal_start = 1)) %>% 
+    mutate(q_date = as.Date(as.yearqtr(as.character(quarter), 
+                            format = "%Y.%q"))) %>% 
+    group_by(quarter, series) %>% 
+    mutate(q_value = mean(value)) %>% 
+    distinct(q_value, .keep_all = T) %>% 
+    ungroup() %>% 
+    select(-value, -date, -quarter) %>%
+    rename(date = q_date) %>% 
+    rename(value = q_value) %>% 
+    bind_rows(gdp_scale)
+
+ggplot(sent_gdp_scale,
     aes(x = date, y = value, color = series)) +
     geom_line() +
     theme_fivethirtyeight() +
     scale_x_date(limits = as.Date(c("1970-01-01","2020-06-01")),
                 date_labels = "%Y") +
-    #scale_color_stata(
-    #    name = "Transformation",
-    #    labels = c('Scaled Polarity', 
-    #                'Raw Polarity', 
-    #                'Scaled Polarity (3 mo. mvg avg)')) +
     labs(x = "Beige Book Report (~8/year)",
         y = "polarity",
         title = "Beige Book Sentiment and GDP Growth",
@@ -275,5 +295,44 @@ sent_gdp_wide <-
         names_from = series,
         values_from = value)
 
-summary(lm(polarity ~ gdp_pch,
-    data = sent_gdp_wide))
+lm_ma_gdp <- lm(polarity_ma ~ gdp_pca,
+    data = sent_gdp_wide)
+
+summary(lm_ma_gdp)
+autoplot(lm_ma_gdp)
+
+ggplot(select(sent_gdp_wide, date, polarity_ma, gdp_pca),
+        aes(x = polarity_ma, y = gdp_pca)) +
+    geom_point() +
+    theme_fivethirtyeight() +
+    geom_smooth(method = 'lm') +
+    labs(x = 'Polarity (3 mo. mvg avg)',
+        y = 'GDP (% change yoy)',
+        title = 'Scatter Plot of Beige Book Sentiment Regression')
+
+g4 <- ggplot(filter(sent_gdp_scale, series == 'polarity' | series == 'gdp_pca'),
+    aes(x = date, y = value, color = series)) +
+    geom_line() +
+    theme_fivethirtyeight() +
+    scale_color_fivethirtyeight(
+        name = '',
+        labels = c('GDP Growth yoy', ' Beige Book Index')
+    ) +
+    scale_x_date(limits = as.Date(c("1970-01-01","2020-06-01")),
+                date_labels = "%Y") +
+    labs(x = "Beige Book Report (~8/year)",
+        y = "polarity",
+        title = "Beige Book Sentiment and GDP Growth (Scaled)",
+        subtitle = "customized Loughran lexicon\npolarity = (positive-negative)/(positive+negative)",
+        caption = "@darrenwchang\nSource: Federal Reserve Bank of Minneapolis\nShaded areas NBER recessions") +
+    geom_rect(data = recessions.df, 
+                    inherit.aes = F, 
+                aes(xmin = Peak, 
+                    xmax = Trough, 
+                    ymin = -Inf, 
+                    ymax = +Inf), 
+                    fill='darkgray', 
+                    alpha=0.5)
+g4
+
+ggsave("sentiment_gdp.png", plot = g4, device = png())

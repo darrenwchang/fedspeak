@@ -67,12 +67,7 @@ fed_sentiment = (fed_sentiment
     .groupby(['report','date','url','year','month','bank','sentiment'])
     .count()
     .unstack(-1, fill_value = 0))
-scaler = StandardScaler()
-(fed_sentiment
-    .assign(polarity = lambda x: (fed_sentiment['word']['positive']-fed_sentiment['word']['negative'])/(fed_sentiment['word']['positive']+fed_sentiment['word']['negative']))
-    .groupby('bank')
-)
 
-# mapper = DataFrameMapper([(df.columns, StandardScaler())])
-# scaled_features = mapper.fit_transform(df.copy(), 4)
-# scaled_features_df = pd.DataFrame(scaled_features, index=df.index, columns=df.columns)
+fed_sentiment = (fed_sentiment
+    .assign(polarity = lambda x: (fed_sentiment['word']['positive']-fed_sentiment['word']['negative'])/(fed_sentiment['word']['positive']+fed_sentiment['word']['negative']))
+)
