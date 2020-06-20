@@ -24,7 +24,7 @@ os.chdir('C:\\Users\\darre\\Documents\\_econ\\fedspeak\\text mining')
 ## Text Mining
 Text mining was completed in `Python 3.7` using `BeautifulSoup`. Setup by importing `Pandas`, `BeauitfulSoup`, and `Requests`.
 
-```{python, eval = F}
+```{python eval = F}
 ## ---- setup
 import pandas as pd
 import numpy as np
@@ -243,7 +243,7 @@ I add to the stop words list:
     - Similarly, words such as "gross" (domestic product) or "crude" (oil) may be coded as negative, but do not have such a negative conntation.
     - Len Kiefer's [blog post](http://lenkiefer.com/2018/07/29/beige-ian-statistics/) about this was helpful, and the list is taken from his post.
 
-```{python, eval = F}
+```{python eval = F}
 # make custom stop words list
 stop_words = stopwords.words("english")
 stop_words_html = ['ppwe', 'uspp', 'pwe', 'usp', 'pp', 'usbrp'] # leftover stopwords from converting html to text 
@@ -358,7 +358,7 @@ ggplot(fed_sentiment,
         y = value,
         color = transformation)) +
     geom_line(aes()) +
-    scale_color_stata() + 
+    scale_color_fivethirtyeight() + 
     theme_fivethirtyeight() +
     scale_x_date(
         #breaks = "5 years", 
@@ -400,7 +400,8 @@ fed_bank_plot <-
 
 ggplot(fed_bank_plot,
     aes(x = date, y = sentiment)) +
-    geom_line(color = 'blue') +
+    geom_line() +
+    scale_color_fivethirtyeight() +
     theme_fivethirtyeight() +
     # scale_x_date(limits = as.Date(c("1970-01-01","2020-01-01")),
     # date_labels = "%Y") +
@@ -456,7 +457,7 @@ ggplot(fed_sentiment_bank,
     scale_x_date(
         limits = as.Date(c("1970-01-01","2020-06-01")),
         date_labels = "%Y") +
-    scale_color_stata(
+    scale_color_fivethirtyeight(
         name = "Transformation",
         labels = c('Scaled Polarity', 'Raw Polarity')) +
     labs(x = "Beige Book Report (~8/year)",
@@ -522,11 +523,11 @@ transformation == "sent_norm_mean_ma" | transformation == "norm_mean" | transfor
     theme_fivethirtyeight() +
     scale_x_date(limits = as.Date(c("1970-01-01","2020-06-01")),
                 date_labels = "%Y") +
-    scale_color_stata(
+    scale_color_fivethirtyeight(
         name = "Transformation",
-        labels = c('Scaled Polarity', 
-                    'Raw Polarity', 
-                    'Scaled Polarity (3 mo. mvg avg)')) +
+        labels = c('Raw Polarity', 
+                    'Scaled Polarity (3 mo. mvg avg)',
+                    'Scaled Polarity')) +
     labs(x = "Beige Book Report (~8/year)",
         y = "polarity",
         title = "Sentiment in Federal Reserve Beige Book",
@@ -546,14 +547,87 @@ Are the transformations we applied actually any better at tracking recessions? C
 
 ### in Python
 
+I downloaded the Loughran-McDonald Sentiment World list as a `csv`, which is [available here](https://sraf.nd.edu/textual-analysis/resources/). Tim Loughran and Bill McDonald include other resources, such as linked papers and a parser for assigning sentiments to each file in a folder; however, our data is not cleanly separated into files (although it could be). I resort to constructing a dictionary as a tidy dataframe.
+
 #### Dictionary Construction
+
+This chunk separates different columns of the word list and then appends them into our preferred dictionary format that we can use for a join.
+
+```{python eval = T}
+lm_dict = (pd.read_csv('C:\\Users\\darre\\Documents\\_econ\\fedspeak\\sentiment analysis\\loughran_mcdonald.csv', header = 0)
+                .fillna('')
+                .apply(lambda x: x.astype(str))
+                .apply(lambda x: x.str.lower())
+                # .to_dict()
+                )
+
+positive = lm_dict['positive'].tolist()
+positive = (pd.DataFrame(list(filter(None, positive)), columns = ['word'])
+                .assign(sentiment = 'positive'))
+
+negative = lm_dict['negative'].tolist()
+negative = (pd.DataFrame(list(filter(None, negative)), columns = ['word'])
+                .assign(sentiment = 'negative'))
+
+uncertainty = lm_dict['uncertainty'].tolist()
+uncertainty = (pd.DataFrame(list(filter(None, uncertainty)), columns = ['word'])
+                .assign(sentiment = 'uncertainty'))
+
+weak_modal = lm_dict['weak_modal'].tolist()
+weak_modal = (pd.DataFrame(list(filter(None, weak_modal)), columns = ['word'])
+                .assign(sentiment = 'weak_modal'))
+
+strong_modal = lm_dict['strong_modal'].tolist()
+strong_modal = (pd.DataFrame(list(filter(None, strong_modal)), columns = ['word'])
+                .assign(sentiment = 'strong_modal'))
+
+constraining = lm_dict['constraining'].tolist()
+constraining = (pd.DataFrame(list(filter(None, constraining)), columns = ['word'])
+                .assign(sentiment = 'constraining'))
+
+lm_dict = (positive.append(negative, ignore_index = True)
+        .append(uncertainty, ignore_index = True)
+        .append(weak_modal, ignore_index = True)
+        .append(strong_modal, ignore_index = True)
+        .append(constraining, ignore_index = True)
+)
+lm_dict.head(20)
+```
 
 #### Get Sentiments
 
+I use `merge` to join our data and our dictionary to create a column with our assigned sentiments.
+
+```{python}
+def get_sentiment(
+    df, # dataframe of words
+    dict # dataframe of dictionary that you want to use
+):
+    return (df
+            .merge(dict)
+            .sort_values(by = ['report'], ignore_index = True))
+```
+Here, I calculate the polarity score for each report.
+```{python}
+fed_sentiment = get_sentiment(fed_text_all, lm_dict)
+
+fed_sentiment = (fed_sentiment
+    .groupby(['report','date','url','year','month','bank','sentiment'])
+    .count()
+    .unstack(-1, fill_value = 0))
+
+fed_sentiment = (fed_sentiment
+    .assign(polarity = lambda x: (fed_sentiment['word']['positive']-fed_sentiment['word']['negative'])/(fed_sentiment['word']['positive']+fed_sentiment['word']['negative']))
+)
+
+fed_sentiment.head(20)
+```
+
 ## The BB Index vs Economic Indicators
 
+### GDP Growth
+
 ## To do
-- GDP growth comparison
 - Regional economic comparison
 - Mapping to inflation?
 - NLP algorithms?
