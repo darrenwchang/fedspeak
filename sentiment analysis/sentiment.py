@@ -59,15 +59,25 @@ def get_sentiment(
 ):
     return (df
             .merge(dict)
-            .sort_values(by = ['report'], ignore_index = True))
+            .sort_values(by = ['report'], ignore_index = False))
 
 fed_sentiment = get_sentiment(fed_text_all, lm_dict)
 
 fed_sentiment = (fed_sentiment
     .groupby(['report','date','url','year','month','bank','sentiment'])
     .count()
-    .unstack(-1, fill_value = 0))
+    .unstack(-1, fill_value = 0)
+    )
+
+# get rid of some wacky indexing
+fed_sentiment.reset_index(inplace = True)
+
+# rename columns
+fed_sentiment.columns = ['report', 'date', 'url', 'year', 'month',
+'bank', 'constraining', 'negative', 'positive', 'strong_modal',
+'uncertainty', 'weak_modal']
 
 fed_sentiment = (fed_sentiment
-    .assign(polarity = lambda x: (fed_sentiment['word']['positive']-fed_sentiment['word']['negative'])/(fed_sentiment['word']['positive']+fed_sentiment['word']['negative']))
+    .drop(['url'], axis = 1)
+    .assign(polarity = lambda x: (fed_sentiment['positive']-fed_sentiment['negative'])/(fed_sentiment['positive']+fed_sentiment['negative']))
 )

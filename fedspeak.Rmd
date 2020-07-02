@@ -2,8 +2,9 @@
 title: "Fedspeak Documentation"
 author: "Darren Chang"
 date: "`r Sys.Date()`"
-output: html_document
+output: pdf_document
 keep_md: true
+urlcolor: blue
 ---
 
 ```{r setup, include = F}
@@ -18,10 +19,12 @@ os.chdir('C:\\Users\\darre\\Documents\\_econ\\fedspeak\\text mining')
 ```
 
 ## Introduction
-[Beige Book](https://www.federalreserve.gov/monetarypolicy/beige-book-default.htm)
+
+Here is the link to the [Beige Book](https://www.federalreserve.gov/monetarypolicy/beige-book-default.htm), a qualitative report that the Federal Reserve releases 8 times a year. In past decades, the Beige Book has been released as often as once a month. Each Federal Reserve district writes their own report and a National Summary is prepared by Research Associates at a district bank on a rotating basis.
 
 
 ## Text Mining
+
 Text mining was completed in `Python 3.7` using `BeautifulSoup`. Setup by importing `Pandas`, `BeauitfulSoup`, and `Requests`.
 
 ```{python eval = F}
@@ -40,14 +43,14 @@ from requests.exceptions import RequestException
 from requests import get
 ```
 
-We scrape the [Minneapolis Fed's Beige Book Archive](https://www.minneapolisfed.org/region-and-community/regional-economic-indicators/beige-book-archive), which hosts `html` files for each Beige Book back to 1970. The links to each website to be scraped is in the `links.csv` file in this repo. Import it as a dataframe.
+I scrape the [Minneapolis Fed's Beige Book Archive](https://www.minneapolisfed.org/region-and-community/regional-economic-indicators/beige-book-archive), which hosts `html` files for each Beige Book back to 1970. The links to each website to be scraped is in the `links.csv` file in this repo. Import it as a dataframe.
 
 ```{python eval = T}
 links = pd.read_csv('C:/Users/darre/Documents/_econ/fedspeak/text mining/links.csv')
 links.head(20)
 links.tail(20)
 ```
-Next, we define our scraping functions that iterate through the links, opens the url, and returns all of the text with the `<p>` tag. Much of the code for this portion was taken from Real Python's [guide to web scraping](https://realpython.com/python-web-scraping-practical-introduction/).
+Next, I define our scraping functions that iterate through the links, opens the url, and returns all of the text with the `<p>` tag. Much of the code for this portion was taken from Real Python's [guide to web scraping](https://realpython.com/python-web-scraping-practical-introduction/).
 
 ```{python eval = F}
 ## ---- scraping
@@ -86,7 +89,9 @@ def log_error(e):
     """
     print(e)
 ```
+
 We define another function to do the actual work of scraping. This returns a dataframe with the metadata about the website we're scraping (date, year, bank, url) merged with lists of lists of the actual text in each page.
+
 ```{python eval = F}
 # scraping a set of links
 def scrape(links, #dataframe of urls and other info
@@ -107,15 +112,19 @@ def scrape(links, #dataframe of urls and other info
 
     return fed_text_raw
 ```
-Finally, we scrape our links. The returned file was over 1GB when saved as a csv file and the process usually takes about 2.5 hours. I would recommend exporting it (to csv or whatever file storage format you prefer) to avoid scraping multiple times.
+
+Finally, I scrape our links. The returned file was over 1GB in size when saved as a csv file and the process usually takes about 2.5 hours. I would recommend exporting it (to csv or whatever file storage format you prefer) to avoid scraping multiple times.
+
 ```{python eval = F}
 fed_text_raw = scrape(links)
 ```
+
 ## Cleaning Data
 We come to the unenviable task of cleaning the data, which represents a few million words from 50 years of Beige Book Reports. First, we strip the dataset of html tags and numbers. When using `BeautifulSoup`, this is often done with the `get_text()` command; however, we use `find_all` with the html paragraph tag to scrape our data, so `get_text` does not work for this case.
 
 ### Preprocessing
 The following function uses regex to replace characters, html tags, and other wacky spacing issues.
+
 ```{python, eval = F}
 ## ---- cleaning
 
@@ -142,7 +151,7 @@ We want to convert our bag of words for each report into the tidy text format, w
 
 >We thus define the tidy text format as being **a table with one-token-per-row**. A token is a meaningful unit of text, such as a word, that we are interested in using for analysis, and tokenization is the process of splitting text into tokens. This one-token-per-row structure is in contrast to the ways text is often stored in current analyses, perhaps as strings or in a document-term matrix. For tidy text mining, the **token** that is stored in each row is most often a single word, but can also be an n-gram, sentence, or paragraph. In the tidytext package, we provide functionality to tokenize by commonly used units of text like these and convert to a one-term-per-row format.
 
-You may ask: why would you want to use a `tidy` format if we're using Python? This is a good question, but here were some of my reasons:
+You may ask: why would you want to use a `tidy` format if we're using Python for mining? This is a good question, but here were some of my reasons:
 
 1. `NLTK` is set up to use ML techniques for sentiment analysis
     + The basic sentiment analysis technique we are using involves matching words in our data with a predefined dictionary.
@@ -152,6 +161,7 @@ You may ask: why would you want to use a `tidy` format if we're using Python? Th
     + Sometimes there are errors where the list is too many characters.
     + The processing speed can be quite slow.
 3. I'm personally more familiar with visualization with ``ggplot2``.
+4. I do attempt to use `python` to repeat some of the data processing that was first completed with `R`. This is clearly indicated (and the reader can also ascertain which language is used by the programming syntax).
 
 Here, we define a function for word tokenization, which borrows heavily from [Michelle Fullwood's](https://github.com/michelleful) [project](https://github.com/michelleful/TidyTextMining-Python) to convert *Text Mining in R* to Python. I have modified the function to merge the tokens with the original list of links based on the date of the report.
 
@@ -181,13 +191,15 @@ def unnest(df, # line-based dataframe
               )
 ```
 
-To complete the preprocessing and tokenization process, we apply the functions to our raw data, convert it to lowercase (which is easier for future processes) and save it as a `csv` file to call it for future use.
+To complete the preprocessing and tokenization process, I apply the functions to our raw data, convert it to lowercase (which is easier for future processes) and save it as a `csv` file to call it for future use.
+
 ```{python, eval = F}
 fed_text_raw = preprocess(fed_text_raw, 'text', 'text')
 fed_text_all = unnest(fed_text_raw, 'text', 'word', nltk.word_tokenize, links)
 fed_text_all['word'] = fed_text_all['word'].str.lower() # convert to lowercase
 fed_text_all.to_csv('fed_text_all.csv', index = False) # save as csv
 ```
+
 #### Dask
 
 If you find that `pandas` is too slow for these applications or for your data, you may want to look into `dask`, which uses multi-core processing in addition to other goodies to speed things up for large datasets. Shikhar Chauhan has a blog post about using dask for text pre-processing at [MindOrks](https://medium.com/mindorks/speeding-up-text-pre-processing-using-dask-45cc3ede1366).  
@@ -213,6 +225,7 @@ def stemming(df,
 ```
 
 ### Lemmatization
+
 Instead of stemming, I lemmatized the text by comparing the verbs in the data to the WordNet corpus in `NLTK`. This reduces a word like "swimming" to "swim," which dictionaries pick up better for sentiment analysis.
 
 ```{python, eval = F}
@@ -233,6 +246,7 @@ fed_text_all['word'] = lemmatize(fed_text_all, 'word', wordnet_lemmatizer) # lem
 ```
 
 ### Stopwords
+
 To finish the cleaning process, I remove stop words from the data, which keeps roughly 60 percent of the raw data (the csv file becomes 600 MB). Stop words are words that do not contribute to the meaning of a selection. The list of `NLTK` stopwords, which is used in this code is available in [this resource](https://www.nltk.org/book/ch02.html) for the package.
 
 I add to the stop words list:
@@ -272,16 +286,23 @@ def remove_stops(df,
 # remove_stops(fed_text_test, 'word', stop_words) # test code
 fed_text_all = remove_stops(fed_text_all, 'word', stop_words)
 ```
-We save the cleaned data as a csv to read it later for sentiment analysis.
+
+I saved the cleaned data as a csv to read it later for sentiment analysis.
+
 ```{python eval = F}
 fed_text_all.to_csv('fed_text_all.csv', index = False) # save as csv
 ```
+
 But before that, some word frequency summary statistics:
+
 ```{python eval = T}
 # summary statistics
 fed_text_all = pd.read_csv('C:/Users/darre/Documents/_econ/fedspeak/text mining/fed_text_all.csv') # read csv
 fed_text_all['word'].value_counts().head(20)
 ```
+
+It's unsurprising to me that reports and district are mentioned often. After all, the Beige Book is a report that is grouped by district. It appears that real economic activity is more important than financial activity, based on words like demand and sales. This isn't surprising, either, as the Fed's concern about financial activity is certainly more recent as markets have grown more important in the wake of the Great Recession. 
+
 ## Sentiment Analysis
 
 ### in R
@@ -526,8 +547,8 @@ transformation == "sent_norm_mean_ma" | transformation == "norm_mean" | transfor
     scale_color_fivethirtyeight(
         name = "Transformation",
         labels = c('Raw Polarity', 
-                    'Scaled Polarity (3 mo. mvg avg)',
-                    'Scaled Polarity')) +
+                    'Scaled Polarity',
+                   'Scaled Polarity (3 mo. mvg avg)',)) +
     labs(x = "Beige Book Report (~8/year)",
         y = "polarity",
         title = "Sentiment in Federal Reserve Beige Book",
@@ -605,19 +626,31 @@ def get_sentiment(
 ):
     return (df
             .merge(dict)
-            .sort_values(by = ['report'], ignore_index = True))
+            .sort_values(by = ['report'], ignore_index = False))
 ```
+
 Here, I calculate the polarity score for each report.
+
 ```{python}
 fed_sentiment = get_sentiment(fed_text_all, lm_dict)
 
 fed_sentiment = (fed_sentiment
     .groupby(['report','date','url','year','month','bank','sentiment'])
     .count()
-    .unstack(-1, fill_value = 0))
+    .unstack(-1, fill_value = 0)
+    )
+
+# get rid of some wacky indexing
+fed_sentiment.reset_index(inplace = True)
+
+# rename columns
+fed_sentiment.columns = ['report', 'date', 'url', 'year', 'month',
+'bank', 'constraining', 'negative', 'positive', 'strong_modal',
+'uncertainty', 'weak_modal']
 
 fed_sentiment = (fed_sentiment
-    .assign(polarity = lambda x: (fed_sentiment['word']['positive']-fed_sentiment['word']['negative'])/(fed_sentiment['word']['positive']+fed_sentiment['word']['negative']))
+    .drop(['url'], axis = 1)
+    .assign(polarity = lambda x: (fed_sentiment['positive']-fed_sentiment['negative'])/(fed_sentiment['positive']+fed_sentiment['negative']))
 )
 
 fed_sentiment.head(20)
@@ -625,11 +658,13 @@ fed_sentiment.head(20)
 
 ## The BB Index vs Economic Indicators
 
+Next, I compare the BB index that I have constructed with the steps above against economic indicators. My hypothesis is that the BB index can be used as a helpful quantitative indicator with some qualitative dimensions, e.g. understanding inflation or liqudity. Furthermore, the BB index may be useful for understanding changes across Federal Reserve districts, for which not a lot of data exists. Looking up data segmented by FRB district on FRED returns limited results (versus data segmented by state, for example).
+
 ### GDP Growth
+
 
 ## To do
 - Regional economic comparison
-- Mapping to inflation?
-- NLP algorithms?
+- Inflation
+- NLP algorithms
 - Forecasting
-- Bot to write Beige Books

@@ -13,6 +13,9 @@
 # Session Data files
 .RData
 
+# Rplot objects
+Rplot*
+
 # User-specific files
 .Ruserdata
 
