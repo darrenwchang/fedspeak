@@ -337,5 +337,5 @@ g4
 
 ggsave("sentiment_gdp.png", plot = g4, device = png())
 
-## -- regional comparisons
+## -- REGIONAL INDICATORS
 # https://fred.stlouisfed.org/searchresults/?st=Nonperforming%20Loans%20(past%20due%2090%2B%20days%20plus%20nonaccrual)%20to%20Total%20Loans%20for%20Banks%20Geographically

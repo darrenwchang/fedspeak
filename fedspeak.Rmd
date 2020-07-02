@@ -310,12 +310,15 @@ The `tidytext` package has a convenient `get_sentiments()` function, which essen
 
 Let's first load some packages and set up our working environment. I use the `vroom` package that is part of the `tidyverse` to load in the file with all of the words. It is significantly faster and easier to use than any `read_csv` function that I've used before.
 
-```{r echo = T, results = 'hide', warning = F}
+```{r echo = T, results = 'hide', warning = F, message = F}
 library(tidyverse)
 library(tidytext)
 library(vroom)
 library(ggthemes)
 library(zoo)
+library(tidyquant)
+library(lubridate)
+library(ggfortify)
 
 setwd("C:\\Users\\darre\\Documents\\_econ\\fedspeak\\sentiment analysis")
 fed_text_all <- vroom('C:\\Users\\darre\\Documents\\_econ\\fedspeak\\text mining\\fed_text_all.csv') # read csv
@@ -343,7 +346,7 @@ recessions.df <- read.table(textConnection(
 
 We find the polarity from our data by report with the `inner_join` method in *Text Mining in R*:
 
-```{r warning = F}
+```{r warning = F, message = F}
 fed_sentiment <- 
     fed_text_all %>% 
     inner_join(get_sentiments("loughran")) %>% # or bing
@@ -373,7 +376,7 @@ Much of this is based on Len Kiefer's code, which is linked to in an earlier par
 
 Here is the plot:
 
-```{r warning = F}
+```{r warning = F, message = F}
 ggplot(fed_sentiment,
     aes(x = date,
         y = value,
@@ -404,7 +407,7 @@ Even this raw data, without any adjustments, appears to track recessions well. I
 
 We can also plot the sentiment by bank using the `facet_wrap` object in `ggplot2`. This yields interesting results: the authors at the different Federal Reserve banks have different scales, thus changing the composition of the data when each bank (and the national summary) is given equal weight.
 
-```{r warning = F, echo = F}
+```{r warning = F, echo = F, message = F}
 
 fed_bank_plot <- 
     fed_text_all %>% 
@@ -448,7 +451,7 @@ To adjust for the differences in each bank's Beige Book reports, I applied a sim
 
 Here is the code and plot:
 
-```{r warning = F}
+```{r warning = F, message = F}
 
 fed_sentiment_bank <- 
     fed_text_all %>% 
@@ -506,7 +509,7 @@ ggplot(fed_sentiment_bank,
 
 We can now put the scaling and moving averages together:
 
-```{r warnings = F}
+```{r warning = F, message = F}
 fed_sentiment_scale <- 
     fed_text_all %>% 
     inner_join(get_sentiments("loughran")) %>% # or bing
@@ -546,9 +549,9 @@ transformation == "sent_norm_mean_ma" | transformation == "norm_mean" | transfor
                 date_labels = "%Y") +
     scale_color_fivethirtyeight(
         name = "Transformation",
-        labels = c('Raw Polarity', 
-                    'Scaled Polarity',
-                   'Scaled Polarity (3 mo. mvg avg)',)) +
+        labels = c('Scaled Polarity',
+                   'Raw Polarity', 
+                   'Scaled Polarity (3 mo. mvg avg)')) +
     labs(x = "Beige Book Report (~8/year)",
         y = "polarity",
         title = "Sentiment in Federal Reserve Beige Book",
@@ -661,6 +664,130 @@ fed_sentiment.head(20)
 Next, I compare the BB index that I have constructed with the steps above against economic indicators. My hypothesis is that the BB index can be used as a helpful quantitative indicator with some qualitative dimensions, e.g. understanding inflation or liqudity. Furthermore, the BB index may be useful for understanding changes across Federal Reserve districts, for which not a lot of data exists. Looking up data segmented by FRB district on FRED returns limited results (versus data segmented by state, for example).
 
 ### GDP Growth
+
+First, I collect the data from FRED using the `tidyquant` package, which is incredibly versatile and integrated with the `tidyverse` ecosystem. I download two different measures for GDP that are similar. [`A191RL1Q225SBEA`](https://fred.stlouisfed.org/series/A191RL1Q225SBEA) is Real GDP with units of Percent Change from Preceding Period, Seasonally Adjusted Annual Rate. It is released quarterly. [`A191RO1Q156NBEA`](https://fred.stlouisfed.org/series/A191RO1Q156NBEA) is Real GDP with units of Percent Change from Quarter One Year Ago, Seasonally Adjusted, also released quarterly. I name the two series `pch` and `pca`, respectively.
+
+```{r warming = F}
+## ---- INDICATOR COMPARISON
+
+# US real GDP
+gdp_tickers <- c("A191RL1Q225SBEA", "A191RO1Q156NBEA")
+gdp <- tq_get(gdp_tickers, get = "economic.data", from = "1970-01-01") %>% 
+    mutate(series = case_when(symbol == "A191RL1Q225SBEA" ~ "gdp_pch",
+                            symbol == "A191RO1Q156NBEA" ~ "gdp_pca")) %>% 
+    select(-symbol) %>% 
+    rename(value = price) 
+```
+
+Second, I scale the GDP estimates, which is important because the BB index is also scaled. This makes comparison on the same graph easier without using multiple y-axes, although it becomes less meaningful in terms of real percentage estimates. Of course, it is possible to "de-scale" these data later to obtain the GDP estimate in percent. The data that is used in the regression is not scaled, but the following chunk of code is included because it is used in visualizations. The data and date transformations are discussed in more detail in the next step.
+
+```{r warning = F}
+gdp_scale <- gdp %>% 
+    group_by(series) %>% 
+    mutate(value = scale(value)) %>% 
+    ungroup()
+
+sent_gdp_scale <- 
+    fed_sentiment_scale %>% 
+    filter(transformation == "sent_norm_mean_ma" | transformation == "norm_mean") %>% 
+    mutate(series = case_when(transformation == "norm_mean" ~ "polarity",
+                            transformation == "sent_norm_mean_ma" ~ "polarity_ma")) %>% 
+    select(-transformation) %>% 
+    mutate(quarter = quarter(date, 
+            with_year = T, 
+            fiscal_start = 1)) %>% 
+    mutate(q_date = as.Date(as.yearqtr(as.character(quarter), 
+                            format = "%Y.%q"))) %>% 
+    group_by(quarter, series) %>% 
+    mutate(q_value = mean(value)) %>% 
+    distinct(q_value, .keep_all = T) %>% 
+    ungroup() %>% 
+    select(-value, -date, -quarter) %>%
+    rename(date = q_date) %>% 
+    rename(value = q_value) %>% 
+    bind_rows(gdp_scale)
+```
+
+Third, I perform some transformations on the GDP data and merge it with the BB index data. Most importantly, the quarterly dates on the BB index have to matched with the quarterly dates on the GDP data. This is done with the `lubridate::quarter` function. The conversion back to R date objects is done with `zoo::as.yearqtr`.
+
+```{r warning = F}
+sent_gdp <- 
+    fed_sentiment_scale %>% 
+    filter(transformation == "sent_norm_mean_ma" | transformation == "norm_mean") %>% 
+    mutate(series = case_when(transformation == "norm_mean" ~ "polarity",
+                            transformation == "sent_norm_mean_ma" ~ "polarity_ma")) %>% 
+    select(-transformation) %>% 
+    mutate(quarter = quarter(date, 
+            with_year = T, 
+            fiscal_start = 1)) %>% 
+    mutate(q_date = as.Date(as.yearqtr(as.character(quarter), 
+                            format = "%Y.%q"))) %>% 
+    group_by(quarter, series) %>% 
+    mutate(q_value = mean(value)) %>% 
+    distinct(q_value, .keep_all = T) %>% 
+    ungroup() %>% 
+    select(-value, -date, -quarter) %>%
+    rename(date = q_date) %>% 
+    rename(value = q_value) %>% 
+    bind_rows(gdp)
+```
+
+Fourth, I convert the tibble with the GDP data and the BB index into the wide format so I can perform a regression.
+
+```{r warning = F}
+sent_gdp_wide <- 
+    sent_gdp %>% 
+    pivot_wider(
+        names_from = series,
+        values_from = value)
+```
+
+Finally, I run the regression. Obviously, this is an extreme simplification of understanding how GDP and the BB index co-move. However, I'm not looking for detailed information on how that happens, simply that there is some correlation between the two datasets. I choose the `polarity_ma` (moving average index) and the `gdp_pca` (percent change year over year) measures because these generate the highest $R^2$ values. 
+
+```{r warning = F}
+lm_ma_gdp <- lm(polarity_ma ~ gdp_pca,
+    data = sent_gdp_wide)
+
+summary(lm_ma_gdp)
+autoplot(lm_ma_gdp)
+
+ggplot(select(sent_gdp_wide, date, polarity_ma, gdp_pca),
+        aes(x = polarity_ma, y = gdp_pca)) +
+    geom_point() +
+    theme_fivethirtyeight() +
+    geom_smooth(method = 'lm') +
+    labs(x = 'Polarity (3 mo. mvg avg)',
+        y = 'GDP (% change yoy)',
+        title = 'Scatter Plot of Beige Book Sentiment Regression')
+```
+
+There is some evidence that the residuals may not be normally distributed, but with such a simple model, it's unclear if a different model would make much of an improvement. It appears that GDP is a significant predictor (with $p = 1.26*10^{-15}$) of the BB index measures; the BB index is also a significant predictor of GDP. With just the two variables, there is little to be said about the direction of effect. The models explain nearly $28\%$ of the variation of the data, which is a decent chunk, considering that the BB index is a constructed measure. I've also included the scatter plot for convenience. Originally, I thought it would be helpful to include lagged regressions, but it appears that the GDP data and BB index match closely on date.
+
+```{r warning = F, message = F}
+ggplot(filter(sent_gdp_scale, series == 'polarity' | series == 'gdp_pca'),
+    aes(x = date, y = value, color = series)) +
+    geom_line() +
+    theme_fivethirtyeight() +
+    scale_color_fivethirtyeight(
+        name = '',
+        labels = c('GDP Growth yoy', ' Beige Book Index')
+    ) +
+    scale_x_date(limits = as.Date(c("1970-01-01","2020-06-01")),
+                date_labels = "%Y") +
+    labs(x = "Beige Book Report (~8/year)",
+        y = "polarity",
+        title = "Beige Book Sentiment and GDP Growth (Scaled)",
+        subtitle = "customized Loughran lexicon\npolarity = (positive-negative)/(positive+negative)",
+        caption = "@darrenwchang\nSource: Federal Reserve Bank of Minneapolis\nShaded areas NBER recessions") +
+    geom_rect(data = recessions.df, 
+                    inherit.aes = F, 
+                aes(xmin = Peak, 
+                    xmax = Trough, 
+                    ymin = -Inf, 
+                    ymax = +Inf), 
+                    fill='darkgray', 
+                    alpha=0.5)
+```
 
 
 ## To do
