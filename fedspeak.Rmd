@@ -392,7 +392,7 @@ ggplot(fed_sentiment,
         y = "polarity",
         title = "Sentiment in Federal Reserve Beige Book",
         subtitle = "customized Loughran lexicon\npolarity = (positive-negative)/(positive+negative)",
-        caption = "@darrenwchang\nSource: Federal Reserve Bank of Minneapolis\nShaded areas NBER recessions") +
+        caption = "Source: Federal Reserve Bank of Minneapolis\nShaded areas NBER recessions") +
     geom_rect(data=recessions.df, 
                     inherit.aes = F, 
                 aes(xmin = Peak, 
@@ -403,7 +403,7 @@ ggplot(fed_sentiment,
                     alpha=0.5)
 ```
 
-Even this raw data, without any adjustments, appears to track recessions well. It's not clear if this is a leading or lagging indicator, or neither. Note that the moving averages may lose some of the power in terms of matching recessions.
+Even this raw data, without any adjustments, appears to track recessions well. It's not clear if this is a leading indicator, lagging indicator, or neither. Note that the moving averages may lose some of the power in terms of matching recessions.
 
 We can also plot the sentiment by bank using the `facet_wrap` object in `ggplot2`. This yields interesting results: the authors at the different Federal Reserve banks have different scales, thus changing the composition of the data when each bank (and the national summary) is given equal weight.
 
@@ -564,7 +564,8 @@ transformation == "sent_norm_mean_ma" | transformation == "norm_mean" | transfor
                     ymin = -Inf, 
                     ymax = +Inf), 
                     fill='darkgray', 
-                    alpha=0.5)
+                    alpha=0.5) +
+    theme(axis.title = element_text())
 ```
 
 Are the transformations we applied actually any better at tracking recessions? Comparing to GDP growth rates (which we will do in the next section) will give more clues as to how we can use this quantification of the Beige Book. The scaled polarity tracks the 2007-09 Great Recession as a more protracted or more serious recession than those in the past, which backs up conventional wisdom at data. The moving averages (unsurprisingly) get rid of some of the noise without removing the general effects. COVID-19 also has clear negative impacts on Beige Book sentiment. From eyeballing, it seems that the transformations smooth out some issues with the data.
@@ -661,7 +662,7 @@ fed_sentiment.head(20)
 
 ## The BB Index vs Economic Indicators
 
-Next, I compare the BB index that I have constructed with the steps above against economic indicators. My hypothesis is that the BB index can be used as a helpful quantitative indicator with some qualitative dimensions, e.g. understanding inflation or liqudity. Furthermore, the BB index may be useful for understanding changes across Federal Reserve districts, for which not a lot of data exists. Looking up data segmented by FRB district on FRED returns limited results (versus data segmented by state, for example).
+Next, I compare the BB index that I have constructed with the steps above against economic indicators. My hypothesis is that the BB index can be used as a helpful quantitative indicator with some qualitative dimensions, e.g. understanding inflation or liquidity. Furthermore, the BB index may be useful for understanding changes across Federal Reserve districts, for which not a lot of data exists. Looking up data segmented by FRB district on FRED returns limited results (versus data segmented by state, for example).
 
 ### GDP Growth
 
@@ -708,7 +709,7 @@ sent_gdp_scale <-
     bind_rows(gdp_scale)
 ```
 
-Third, I perform some transformations on the GDP data and merge it with the BB index data. Most importantly, the quarterly dates on the BB index have to matched with the quarterly dates on the GDP data. This is done with the `lubridate::quarter` function. The conversion back to R date objects is done with `zoo::as.yearqtr`.
+Third, I perform some transformations on the GDP data and merge it with the BB index data. Most importantly, the quarterly dates on the BB index have to matched with the quarterly dates on the GDP data. This is done with the `lubridate::quarter()` function. The conversion back to R date objects is done with `zoo::as.yearqtr()`.
 
 ```{r warning = F}
 sent_gdp <- 
@@ -758,7 +759,9 @@ ggplot(select(sent_gdp_wide, date, polarity_ma, gdp_pca),
     geom_smooth(method = 'lm') +
     labs(x = 'Polarity (3 mo. mvg avg)',
         y = 'GDP (% change yoy)',
-        title = 'Scatter Plot of Beige Book Sentiment Regression')
+        title = 'Scatter Plot of Beige Book Sentiment Regression') +
+    theme(axis.title = element_text())
+
 ```
 
 There is some evidence that the residuals may not be normally distributed, but with such a simple model, it's unclear if a different model would make much of an improvement. It appears that GDP is a significant predictor (with $p = 1.26*10^{-15}$) of the BB index measures; the BB index is also a significant predictor of GDP. With just the two variables, there is little to be said about the direction of effect. The models explain nearly $28\%$ of the variation of the data, which is a decent chunk, considering that the BB index is a constructed measure. I've also included the scatter plot for convenience. Originally, I thought it would be helpful to include lagged regressions, but it appears that the GDP data and BB index match closely on date.
@@ -778,7 +781,7 @@ ggplot(filter(sent_gdp_scale, series == 'polarity' | series == 'gdp_pca'),
         y = "polarity",
         title = "Beige Book Sentiment and GDP Growth (Scaled)",
         subtitle = "customized Loughran lexicon\npolarity = (positive-negative)/(positive+negative)",
-        caption = "@darrenwchang\nSource: Federal Reserve Bank of Minneapolis\nShaded areas NBER recessions") +
+        caption = "Source: Federal Reserve Bank of Minneapolis\nShaded areas NBER recessions") +
     geom_rect(data = recessions.df, 
                     inherit.aes = F, 
                 aes(xmin = Peak, 
@@ -786,7 +789,8 @@ ggplot(filter(sent_gdp_scale, series == 'polarity' | series == 'gdp_pca'),
                     ymin = -Inf, 
                     ymax = +Inf), 
                     fill='darkgray', 
-                    alpha=0.5)
+                    alpha=0.5)+
+    theme(axis.title = element_text())
 ```
 
 

@@ -287,7 +287,8 @@ ggplot(sent_gdp_scale,
                     ymin = -Inf, 
                     ymax = +Inf), 
                     fill='darkgray', 
-                    alpha=0.5)
+                    alpha=0.5) +
+    theme(axis.title = element_text())
 
 sent_gdp_wide <- 
     sent_gdp %>% 
@@ -308,7 +309,8 @@ ggplot(select(sent_gdp_wide, date, polarity_ma, gdp_pca),
     geom_smooth(method = 'lm') +
     labs(x = 'Polarity (3 mo. mvg avg)',
         y = 'GDP (% change yoy)',
-        title = 'Scatter Plot of Beige Book Sentiment Regression')
+        title = 'Scatter Plot of Beige Book Sentiment Regression') +
+    theme(axis.title = element_text())
 
 g4 <- ggplot(filter(sent_gdp_scale, series == 'polarity' | series == 'gdp_pca'),
     aes(x = date, y = value, color = series)) +
@@ -332,7 +334,8 @@ g4 <- ggplot(filter(sent_gdp_scale, series == 'polarity' | series == 'gdp_pca'),
                     ymin = -Inf, 
                     ymax = +Inf), 
                     fill='darkgray', 
-                    alpha=0.5)
+                    alpha=0.5) +
+    theme(axis.title = element_text())
 g4
 
 ggsave("sentiment_gdp.png", plot = g4, device = png())
