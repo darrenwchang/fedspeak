@@ -25,7 +25,7 @@ from nltk.stem import WordNetLemmatizer
 from nltk.corpus import stopwords
 
 # importing links, which were created using excel
-os.chdir('C:\\Users\\darre\\Documents\\_econ\\fedspeak\\text mining')
+os.chdir('Documents/_econ/fedspeak/text mining')
 links = pd.read_csv('links.csv')
 links.head(10)
 

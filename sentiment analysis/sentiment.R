@@ -247,7 +247,12 @@ sent_gdp <-
     select(-value, -date, -quarter) %>%
     rename(date = q_date) %>% 
     rename(value = q_value) %>% 
-    bind_rows(gdp)
+    bind_rows(gdp) %>% 
+    arrange(series)
+
+vroom_write(sent_gdp, 'sent_gdp.csv', 
+                delim = ',',
+                col_names = T)
 
 sent_gdp_scale <- 
     fed_sentiment_scale %>% 
