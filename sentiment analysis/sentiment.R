@@ -254,6 +254,21 @@ vroom_write(sent_gdp, 'sent_gdp.csv',
                 delim = ',',
                 col_names = T)
 
+sent_gdp_month <- 
+    fed_sentiment_scale %>% 
+    filter(transformation == "sent_norm_mean_ma" | transformation == "norm_mean") %>% 
+    mutate(series = case_when(transformation == "norm_mean" ~ "polarity",
+                            transformation == "sent_norm_mean_ma" ~ "polarity_ma")) %>% 
+    select(-transformation) %>% 
+    # mutate(quarter = quarter(date, 
+    #        with_year = T, 
+    #        fiscal_start = 1)) %>% 
+    arrange(series)
+
+vroom_write(sent_gdp_month, 'sent_gdp_month.csv',
+                delim = ',',
+                col_names = T)
+
 sent_gdp_scale <- 
     fed_sentiment_scale %>% 
     filter(transformation == "sent_norm_mean_ma" | transformation == "norm_mean") %>% 
@@ -341,6 +356,7 @@ g4 <- ggplot(filter(sent_gdp_scale, series == 'polarity' | series == 'gdp_pca'),
                     fill='darkgray', 
                     alpha=0.5) +
     theme(axis.title = element_text())
+    
 g4
 
 ggsave("sentiment_gdp.png", plot = g4, device = png())

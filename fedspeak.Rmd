@@ -800,6 +800,4 @@ ggplot(filter(sent_gdp_scale, series == 'polarity' | series == 'gdp_pca'),
 
 ## To do
 - Regional economic comparison
-- Inflation
-- NLP algorithms
 - Forecasting
