@@ -65,7 +65,13 @@ tickers <- c('PAYEMS', # payroll employment
 
 factors <- tq_get(tickers, get = 'economic.data', from = '1970-01-01')
 
-base <-
+# base <-
+#         factors %>% 
+#         pivot_wider(
+#                 names_from = symbol,
+#                 values_from = price) 
+
+base_nd <- 
         factors %>% 
         pivot_wider(
                 names_from = symbol,
@@ -77,12 +83,49 @@ trans <- c(2, 2, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 1, 6, 1, 0, 0, 
 frequency <- c(12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
                 4, 12, 12, 12, 12, 4)
 
-gdp_balance <- balance_panel(base = base, trans = trans, NA.replace = F, na.prop = 1)
+gdp_balance <- balance_panel(base = base_nd, 
+                                start = c(1970, 1), 
+                                end = c(2020,6), 
+                                frequency = 12, 
+                                trans = trans, 
+                                NA.replace = F, 
+                                na.prop = 1)
 
-blocks <- NYFED$blocks$blocks
+blocks <- tibble::tribble(~Global, ~Soft, ~Real, ~Labor,
+                1,    0,    0,    1,
+                1,    0,    0,    1,
+                1,    0,    0,    0,
+                1,    0,    1,    0,
+                1,    0,    1,    0,
+                1,    0,    0,    1,
+                1,    0,    1,    0,
+                1,    0,    1,    0,
+                1,    0,    1,    0,
+                1,    0,    1,    0,
+                1,    0,    1,    0,
+                1,    0,    1,    0,
+                1,    0,    0,    0,
+                1,    0,    0,    0,
+                1,    0,    0,    0,
+                1,    0,    0,    0,
+                1,    0,    1,    0,
+                1,    0,    1,    0,
+                1,    0,    1,    0,
+                1,    0,    0,    1,
+                1,    0,    0,    0,
+                1,    1,    0,    0,
+                1,    1,    0,    0,
+                1,    0,    1,    0,
+                1,    0,    1,    0
+)
 
-gdp_nowcast <- nowcast(formula = GDPC1 ~ ., data = gdp_balance, r = 1, p = 1, 
-                method = "EM", blocks = blocks, frequency = frequency)
+gdp_nowcastEM <- nowcast(formula = GDPC1 ~ ., 
+                data = gdp_balance, 
+                r = 1, 
+                p = 1, 
+                method = "EM", 
+                blocks = blocks, 
+                frequency = frequency)
 
 nowcast.plot(gdp_nowcast)
 # nowcast.plot(gdp_nowcast)
@@ -96,8 +139,9 @@ frequency_ny <- NYFED$legend$Frequency
 delay_ny <- NYFED$legend$delay
 base_ny <- NYFED$base
 trans_ny <- NYFED$legend$Transformation
+data <- NYFED$base
 
-gdp_ny <- balance_panel(base = base_ny, trans = trans_ny, NA.replace = F, na.prop = 1)
+gdp_ny <- Bpanel(base = data, trans = trans_ny, NA.replace = F, na.prop = 1)
 nowEM <- nowcast(formula = GDPC1 ~ ., data = gdp_ny, r = 1, p = 1, 
                 method = "EM", blocks = blocks_ny, frequency = frequency_ny)
 nowcast.plot(nowEM)

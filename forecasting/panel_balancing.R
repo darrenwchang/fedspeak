@@ -37,13 +37,11 @@ outliers_correction <- function(x, k.ma = 3, NA.replace){
     return(Z)
 }
 
-
-
 ## -- BALANCED PANELS FUNCTION
 # balance panel function is almost the same as nowcasting::BPanel()
 # added base <- ts(base)
 
-balance_panel <- function(base, trans, NA.replace = T, aggregate = F, k.ma = 3, na.prop = 1/3, h = 12){
+balance_panel <- function(base, trans, start, end, frequency, NA.replace = T, aggregate = F, k.ma = 3, na.prop = 1/3, h = 12){
 
     if(is.null(trans)){
     stop('trans can not to be NULL')
@@ -66,7 +64,7 @@ balance_panel <- function(base, trans, NA.replace = T, aggregate = F, k.ma = 3, 
     }
 
     # data transformation
-    base <- ts(base)
+    base <- ts(base, start, end, frequency)
     base1 <- base
     for(j in 1:ncol(base)){
     base1[,j] <- NA
