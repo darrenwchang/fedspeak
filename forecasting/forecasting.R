@@ -8,9 +8,12 @@ library(tidyverse)
 library(vroom)
 library(nowcasting)
 library(tidyquant)
+library(matlab)
 
 setwd("C:\\Users\\darre\\Documents\\_econ\\fedspeak\\forecasting")
 source("panel_balancing.R")
+source("nowcast_adj.R")
+source("methodEM.R")
 
 # sent_gdp <- vroom("..\\sentiment analysis\\sent_gdp.csv")
 
@@ -119,7 +122,7 @@ blocks <- tibble::tribble(~Global, ~Soft, ~Real, ~Labor,
                 1,    0,    1,    0
 )
 
-gdp_nowcastEM <- nowcast(formula = GDPC1 ~ ., 
+gdp_nowcastEM <- nowcast_adj(formula = GDPC1 ~ ., 
                 data = gdp_balance, 
                 r = 1, 
                 p = 1, 
@@ -130,30 +133,30 @@ gdp_nowcastEM <- nowcast(formula = GDPC1 ~ .,
 nowcast.plot(gdp_nowcast)
 # nowcast.plot(gdp_nowcast)
 
-## NYFED Nowcasting -- Dynamic Factor Example
-data(NYFED)
+# ## NYFED Nowcasting -- Dynamic Factor Example
+# data(NYFED)
 
-blocks_ny <- NYFED$blocks$blocks
-trans <- NYFED$legend$Transformation
-frequency_ny <- NYFED$legend$Frequency
-delay_ny <- NYFED$legend$delay
-base_ny <- NYFED$base
-trans_ny <- NYFED$legend$Transformation
-data <- NYFED$base
+# blocks_ny <- NYFED$blocks$blocks
+# trans <- NYFED$legend$Transformation
+# frequency_ny <- NYFED$legend$Frequency
+# delay_ny <- NYFED$legend$delay
+# base_ny <- NYFED$base
+# trans_ny <- NYFED$legend$Transformation
+# data <- NYFED$base
 
-gdp_ny <- Bpanel(base = data, trans = trans_ny, NA.replace = F, na.prop = 1)
-nowEM <- nowcast(formula = GDPC1 ~ ., data = gdp_ny, r = 1, p = 1, 
-                method = "EM", blocks = blocks_ny, frequency = frequency_ny)
-nowcast.plot(nowEM)
+# gdp_ny <- Bpanel(base = data, trans = trans_ny, NA.replace = F, na.prop = 1)
+# nowEM <- nowcast(formula = GDPC1 ~ ., data = gdp_ny, r = 1, p = 1, 
+#                 method = "EM", blocks = blocks_ny, frequency = frequency_ny)
+# nowcast.plot(nowEM)
 
-# # forecast
-# fcst_dates <- seq.Date(from = as.Date("2013-03-01"), to = as.Date("2017-12-01"),
-#         by = "quarter")
-# fcst_results <- NULL
-# for(date in fcst_dates){
-#         vintage <- PRTDB(gdp_ny, delay = delay_ny, vintage = date)
-#         nowEM <- nowcast(formula = GDPC1~., data = vintage, r = 1, p = 1, method = "EM",
-#         blocks = blocks_ny, frequency = frequency_ny)
-#         fcst_results <- c(fcst_results,tail(nowEM$yfcst[,3],1))
-# }
-# nowcast.plot(fcst_results)
+# # # forecast
+# # fcst_dates <- seq.Date(from = as.Date("2013-03-01"), to = as.Date("2017-12-01"),
+# #         by = "quarter")
+# # fcst_results <- NULL
+# # for(date in fcst_dates){
+# #         vintage <- PRTDB(gdp_ny, delay = delay_ny, vintage = date)
+# #         nowEM <- nowcast(formula = GDPC1~., data = vintage, r = 1, p = 1, method = "EM",
+# #         blocks = blocks_ny, frequency = frequency_ny)
+# #         fcst_results <- c(fcst_results,tail(nowEM$yfcst[,3],1))
+# # }
+# # nowcast.plot(fcst_results)

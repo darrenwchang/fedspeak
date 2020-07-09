@@ -2,7 +2,7 @@
 #' @description Estimate nowcasting and forecasting models for quarterly or monthly time series. For more details read the Vignettes.
 #' @param formula An object of class "formula": a symbolic description of the model to be fitted.
 #' @param data A monthly time series matrix (\code{mts}) of stationary variables. 
-#' @param r number of commom factors.
+#' @param r number of common factors.
 #' @param q Dynamic rank. Number of error terms.
 #' @param p AR order of factor model.
 #' @param method There are three options: \code{"2s"} (two stages without factors aggregation as in Giannone et al. 2008); \code{"2s_agg"} (two stages with factors aggregation); \code{"EM"} (Expected Maximization as in Bańbura et al. 2011).
@@ -61,7 +61,7 @@
 #' @seealso \code{\link[nowcasting]{base_extraction}}
 #' @export
 
-nowcast <- function(formula, data, r = NULL, q = NULL, p = NULL, method = 'EM', blocks = NULL, frequency = NULL){
+nowcast_adj <- function(formula, data, r = NULL, q = NULL, p = NULL, method = 'EM', blocks = NULL, frequency = NULL){
 
 # Checking user inputs
     
@@ -92,11 +92,10 @@ y_position <- which(colnames(data) == colnames(k)[1])
 freq_y <- frequency[y_position]
 
 if(freq_y == 4){
-    y <- month2qtr(ts(k[,1], start = start(data), frequency = 12))
+    y <- month2qtr(ts(k[,1], start = start(data), frequency = 12), reference_month = 1)
 }else{
     y <- ts(k[,1], start = start(data), frequency = 12)
 }  
-
 
 # selecting the method
 if(method == '2s'){

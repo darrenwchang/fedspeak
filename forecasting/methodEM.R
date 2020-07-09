@@ -13,7 +13,7 @@ if(options$method == 1){ # replace all the missing values (método Giannone et a
     for (i in 1:N){  
         x = X[,i]
         x[indNaN[,i]] = median(x,na.rm = T);
-        x_MA<-filter(x = c(rep(x[1],k),x,rep(x[length(x)],k)),filter = rep(1,2*k+1)/(2*k+1),sides = 1)
+        x_MA<-stats::filter(x = c(rep(x[1],k),x,rep(x[length(x)],k)), filter = rep(1,2*k+1)/(2*k+1),sides = 1)
         x_MA=x_MA[(2*k+1):length(x_MA)]
         x[indNaN[,i]]=x_MA[indNaN[,i]]
         X[,i]=x;
@@ -40,7 +40,7 @@ if(options$method == 1){ # replace all the missing values (método Giannone et a
         isnanx<-is.na(x)
         x[isnanx] <- median(x,na.rm = T)
         
-        x_MA<-filter(x = c(rep(x[1],k),x,rep(x[length(x)],k)),filter = rep(1,2*k+1)/(2*k+1),sides = 1)
+        x_MA<-stats::filter(x = c(rep(x[1],k),x,rep(x[length(x)],k)), filter = rep(1,2*k+1)/(2*k+1),sides = 1)
         x_MA=x_MA[(2*k+1):length(x_MA)]
         x[indNaN[,i]]=x_MA[indNaN[,i]]
         X[,i]=x;
@@ -79,7 +79,7 @@ if(options$method == 1){ # replace all the missing values (método Giannone et a
         isnanx<-is.na(x)
         x[isnanx] <- median(x,na.rm = T)
         
-        x_MA<-filter(x = c(rep(x[1],k),x,rep(x[length(x)],k)),filter = rep(1,2*k+1)/(2*k+1),sides = 1)
+        x_MA<-stats::filter(x = c(rep(x[1],k),x,rep(x[length(x)],k)), filter = rep(1,2*k+1)/(2*k+1),sides = 1)
         x_MA=x_MA[(2*k+1):length(x_MA)]
         x[indNaN[,i]]=x_MA[indNaN[,i]]
         X[,i]=x;
@@ -100,7 +100,7 @@ if(options$method == 1){ # replace all the missing values (método Giannone et a
         isnanx<-is.na(x)
         x[isnanx] <- median(x,na.rm = T)
         
-        x_MA<-filter(x = c(rep(x[1],k),x,rep(x[length(x)],k)),filter = rep(1,2*k+1)/(2*k+1),sides = 1)
+        x_MA<-stats::filter(x = c(rep(x[1],k),x,rep(x[length(x)],k)), filter = rep(1,2*k+1)/(2*k+1),sides = 1)
         x_MA=x_MA[(2*k+1):length(x_MA)]
         x[indNaN[,i]]=x_MA[indNaN[,i]]
         X[,i]=x;
