@@ -31,11 +31,18 @@ setwd("C:\\Users\\darre\\Documents\\_econ\\fedspeak\\forecasting")
 
 # # clearly, this model is not very appropriate
 
-## -- NOWCASTING
-# sent_gdp_month <- vroom("..\\sentiment analysis\\sent_gdp_month.csv")
+### -- NOWCASTING
 
-## use tidyquant to get all the indicators
+## -- data import
 
+# import sentiments
+sent_gdp_month <- vroom("..\\sentiment analysis\\sent_gdp_month.csv")
+sent_gdp_month <- 
+        sent_gdp_month %>% 
+        rename(symbol = series,
+                price = value)
+
+# use tidyquant to get all the indicators
 tickers <- c('PAYEMS', # payroll employment
                 'JTSJOL', # job openings
                 'CPIAUCSL', # CPI inflation urban
@@ -65,31 +72,32 @@ tickers <- c('PAYEMS', # payroll employment
 
 factors <- tq_get(tickers, get = 'economic.data', from = '1970-01-01')
 
+# keep only moving averages
+factors <- factors %>% 
+        bind_rows(filter(sent_gdp_month, symbol != 'polarity'))
+
+## -- data setup
+
+# lag GDP properly and make wider
 base_nd <- 
         factors %>% 
         pivot_wider(
                 names_from = symbol,
                 values_from = price) %>%
-        mutate(GDPC1 = lag(GDPC1, 2)) %>% 
+        mutate(GDPC1 = lag(GDPC1, 2)) %>%
+        rename(BBPOLAR = polarity_ma) %>% 
         select(-date)
 
-## -- PARAMETER SETUP
-trans <- c(2, 2, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 1, 6, 1, 0, 0, 1, 7)
-frequency <- c(12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
-                4, 12, 12, 12, 12, 4)
-
-a <- ts(base_nd,
+# make times series object
+base_ts <- ts(base_nd,
         start = c(1970, 1),
         end = c(2020,6),
         frequency = 12)
 
-gdp_balance <- Bpanel(base = a, 
-                                # start = c(1970, 1), 
-                                # end = c(2020,6), 
-                                # frequency = 12, 
-                                trans = trans, 
-                                NA.replace = F, 
-                                na.prop = 1)
+# set up parameters
+trans <- c(2, 2, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 1, 6, 1, 0, 0, 1, 7, 0)
+frequency <- c(12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
+                4, 12, 12, 12, 12, 4, 12)
 
 blocks <- tibble::tribble(~Global, ~Soft, ~Real, ~Labor,
                 1,    0,    0,    1,
@@ -116,9 +124,17 @@ blocks <- tibble::tribble(~Global, ~Soft, ~Real, ~Labor,
                 1,    1,    0,    0,
                 1,    1,    0,    0,
                 1,    0,    1,    0,
-                1,    0,    1,    0
+                1,    0,    1,    0,
+                1,    1,    0,    0
 )
 
+## -- balance panels using nowcasting::Bpanel()
+gdp_balance <- Bpanel(base = base_ts,
+                trans = trans, 
+                NA.replace = F, 
+                na.prop = 1)
+
+## -- nowcast
 gdp_nowcastEM <- nowcast(formula = GDPC1 ~ ., 
                 data = gdp_balance, 
                 r = 1, 
@@ -127,4 +143,5 @@ gdp_nowcastEM <- nowcast(formula = GDPC1 ~ .,
                 blocks = blocks, 
                 frequency = frequency)
 
+## -- plotting
 nowcast.plot(gdp_nowcastEM)
