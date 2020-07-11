@@ -797,7 +797,12 @@ ggplot(filter(sent_gdp_scale, series == 'polarity' | series == 'gdp_pca'),
     theme(axis.title = element_text())
 ```
 
+## Forecasting
+
+I first attempted to use the `fbprophet` package for some (very light and very automated) forecasting, but it didn't work well for this purpose, as business cycles are of variable length. Instead, I used the [`nowcasting`](https://cran.r-project.org/web/packages/nowcasting/nowcasting.pdf) package, which is available on CRAN and uses a dynamic factor method for estimation based on [Giannone, Reichlin, and Small (2008)](http://dept.ku.edu/~empirics/Courses/Econ844/papers/Nowcasting%20GDP.pdf).
+
+Our exercise is similar to what the New York Fed does in their w[weekly nowcasting report](https://www.newyorkfed.org/research/policy/nowcast.html), although limited access to data constrains the forecast's timeliness. In addition, the method chosen for nowcasting does not use Kalman filtering.
+
 
 ## To do
 - Regional economic comparison
-- Forecasting
