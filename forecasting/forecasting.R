@@ -73,14 +73,86 @@ tickers <- c('PAYEMS', # payroll employment
 factors <- tq_get(tickers, get = 'economic.data', from = '1970-01-01')
 
 # keep only moving averages
-factors <- factors %>% 
+factors_pol <- factors %>% 
         bind_rows(filter(sent_gdp_month, symbol != 'polarity'))
+
+### -- WITHOUT BB INDEX [BBPOLAR]
 
 ## -- data setup
 
 # lag GDP properly and make wider
-base_nd <- 
+base <- 
         factors %>% 
+        pivot_wider(
+                names_from = symbol,
+                values_from = price) %>%
+        mutate(GDPC1 = lag(GDPC1, 2)) %>%
+        select(-date)
+
+# make times series object
+base_ts <- ts(base,
+        start = c(1970, 1),
+        end = c(2020,6),
+        frequency = 12)
+
+# set up parameters
+trans <- c(2, 2, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 1, 6, 1, 0, 0, 1, 7)
+frequency <- c(12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
+                4, 12, 12, 12, 12, 4)
+
+blocks <- tibble::tribble(~Global, ~Soft, ~Real, ~Labor,
+                1,    0,    0,    1,
+                1,    0,    0,    1,
+                1,    0,    0,    0,
+                1,    0,    1,    0,
+                1,    0,    1,    0,
+                1,    0,    0,    1,
+                1,    0,    1,    0,
+                1,    0,    1,    0,
+                1,    0,    1,    0,
+                1,    0,    1,    0,
+                1,    0,    1,    0,
+                1,    0,    1,    0,
+                1,    0,    0,    0,
+                1,    0,    0,    0,
+                1,    0,    0,    0,
+                1,    0,    0,    0,
+                1,    0,    1,    0,
+                1,    0,    1,    0,
+                1,    0,    1,    0,
+                1,    0,    0,    1,
+                1,    0,    0,    0,
+                1,    1,    0,    0,
+                1,    1,    0,    0,
+                1,    0,    1,    0,
+                1,    0,    1,    0
+)
+
+## -- balance panels using nowcasting::Bpanel()
+base_ts_balance <- Bpanel(base = base_ts,
+                trans = trans, 
+                NA.replace = F, 
+                na.prop = 1)
+
+## -- nowcast
+gdp_nowcastEM <- nowcast(formula = GDPC1 ~ ., 
+                data = base_ts_balance, 
+                r = 1, 
+                p = 1, 
+                method = "EM", 
+                blocks = blocks, 
+                frequency = frequency)
+
+## -- plotting
+nowcast.plot(gdp_nowcastEM)
+
+### -- WITH BB INDEX [BBPOLAR]
+
+## -- data setup
+
+# lag GDP properly and make wider
+base_bb <- 
+        factors_pol %>% 
         pivot_wider(
                 names_from = symbol,
                 values_from = price) %>%
@@ -89,17 +161,17 @@ base_nd <-
         select(-date)
 
 # make times series object
-base_ts <- ts(base_nd,
+base_ts_bb <- ts(base_bb,
         start = c(1970, 1),
         end = c(2020,6),
         frequency = 12)
 
 # set up parameters
-trans <- c(2, 2, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 1, 6, 1, 0, 0, 1, 7, 0)
-frequency <- c(12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
+trans_bb <- c(2, 2, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 1, 6, 1, 0, 0, 1, 7, 0)
+frequency_bb <- c(12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
                 4, 12, 12, 12, 12, 4, 12)
 
-blocks <- tibble::tribble(~Global, ~Soft, ~Real, ~Labor,
+blocks_bb <- tibble::tribble(~Global, ~Soft, ~Real, ~Labor,
                 1,    0,    0,    1,
                 1,    0,    0,    1,
                 1,    0,    0,    0,
@@ -129,19 +201,19 @@ blocks <- tibble::tribble(~Global, ~Soft, ~Real, ~Labor,
 )
 
 ## -- balance panels using nowcasting::Bpanel()
-gdp_balance <- Bpanel(base = base_ts,
-                trans = trans, 
+base_ts_balance_bb <- Bpanel(base = base_ts_bb,
+                trans = trans_bb, 
                 NA.replace = F, 
                 na.prop = 1)
 
 ## -- nowcast
-gdp_nowcastEM <- nowcast(formula = GDPC1 ~ ., 
-                data = gdp_balance, 
+gdp_bb_nowcastEM <- nowcast(formula = GDPC1 ~ ., 
+                data = base_ts_balance_bb, 
                 r = 1, 
                 p = 1, 
                 method = "EM", 
-                blocks = blocks, 
-                frequency = frequency)
+                blocks = blocks_bb, 
+                frequency = frequency_bb)
 
 ## -- plotting
-nowcast.plot(gdp_nowcastEM)
+nowcast.plot(gdp_bb_nowcastEM)
