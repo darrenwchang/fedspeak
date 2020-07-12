@@ -8,7 +8,7 @@ library(tidyverse)
 library(vroom)
 library(nowcasting)
 library(tidyquant)
-library(matlab)
+library(ggthemes)
 
 setwd("C:\\Users\\darre\\Documents\\_econ\\fedspeak\\forecasting")
 
@@ -217,3 +217,60 @@ gdp_bb_nowcastEM <- nowcast(formula = GDPC1 ~ .,
 
 ## -- plotting
 nowcast.plot(gdp_bb_nowcastEM)
+
+nowcast_EM_bb_y <- as_tibble(gdp_bb_nowcastEM$yfcst) %>% 
+        mutate(date = seq(as.Date("1970-01-01"), as.Date("2021-04-01"), by = 'quarter')) %>% 
+        select(date, everything()) %>% 
+        rename(GDP = y,
+        GDP_fcst = out,
+        GDP_yhat = `in`) %>% 
+        pivot_longer(-date,
+                names_to = 'type'
+        )
+
+recessions.df <- read.table(textConnection(
+        "Peak, Trough
+        1948-11-01, 1949-10-01
+        1953-07-01, 1954-05-01
+        1957-08-01, 1958-04-01
+        1960-04-01, 1961-02-01
+        1969-12-01, 1970-11-01
+        1973-11-01, 1975-03-01
+        1980-01-01, 1980-07-01
+        1981-07-01, 1982-11-01
+        1990-07-01, 1991-03-01
+        2001-03-01, 2001-11-01
+        2007-12-01, 2009-06-01"), 
+        sep=',',
+        colClasses = c('Date', 'Date'), 
+        header = TRUE)
+
+ggplot(nowcast_EM_bb_y, 
+        aes(x = date, y = value, color = type)) + 
+        geom_line() +
+        theme_fivethirtyeight() +
+        scale_color_fivethirtyeight(
+                name = '',
+                labels = c(
+                'Predicted GDP Growth',
+                'GDP Growth Forecast',
+                'Actual Quarterly GDP Growth')
+        ) +
+        scale_x_date(
+        limits = as.Date(c("1970-01-01","2021-06-01")),
+        date_labels = "%Y",
+        breaks = '4 years') +
+        labs(y = 'Quarterly GDP Growth (%)',
+        title = 'Nowcasting GDP with Beige Book Data',
+        subtitle = 'Dynamic Factor Model with nowcasting package',
+        caption = 'Source: Minneapolis Federal Reserve, New York Federal Reserve, and author calcuations'
+        ) +
+        geom_rect(data = recessions.df, 
+                        inherit.aes = F, 
+                aes(xmin = Peak, 
+                        xmax = Trough, 
+                        ymin = -Inf, 
+                        ymax = +Inf), 
+                        fill='darkgray', 
+                        alpha=0.5) +
+        theme(axis.title = element_text())

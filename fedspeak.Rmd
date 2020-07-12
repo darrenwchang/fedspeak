@@ -3,6 +3,10 @@ title: "Fedspeak Documentation"
 author: "Darren Chang"
 date: "`r Sys.Date()`"
 output: pdf_document
+latex_engine: xelatex
+toc: true
+toc depth: 3
+number sections: true
 keep_md: true
 urlcolor: blue
 ---
@@ -17,6 +21,8 @@ import numpy as np
 import os
 os.chdir('C:/Users/darre/Documents/_econ/fedspeak/text mining')
 ```
+
+\newpage
 
 ## Introduction
 
@@ -203,7 +209,7 @@ fed_text_all['word'] = fed_text_all['word'].str.lower() # convert to lowercase
 fed_text_all.to_csv('fed_text_all.csv', index = False) # save as csv
 ```
 
-#### Dask
+### Dask  
 
 If you find that `pandas` is too slow for these applications or for your data, you may want to look into `dask`, which uses multi-core processing in addition to other goodies to speed things up for large datasets. Shikhar Chauhan has a blog post about using dask for text pre-processing at [MindOrks](https://medium.com/mindorks/speeding-up-text-pre-processing-using-dask-45cc3ede1366).  
 
@@ -345,7 +351,7 @@ recessions.df <- read.table(textConnection(
 
 ```
 
-#### Polarity
+### Polarity  
 
 We find the polarity from our data by report with the `inner_join` method in *Text Mining in R*:
 
@@ -448,7 +454,7 @@ ggplot(fed_bank_plot,
                     'su' = 'National Summary')))
 ```
 
-#### Scaling
+### Scaling  
 
 To adjust for the differences in each bank's Beige Book reports, I applied a simple scaling function. No, seriously, very simple. The range of values is larger but adjusted to the mean and standard deviation of each sample, which is bank-specific.
 
@@ -577,7 +583,7 @@ Are the transformations we applied actually any better at tracking recessions? C
 
 I downloaded the Loughran-McDonald Sentiment World list as a `csv`, which is [available here](https://sraf.nd.edu/textual-analysis/resources/). Tim Loughran and Bill McDonald include other resources, such as linked papers and a parser for assigning sentiments to each file in a folder; however, our data is not cleanly separated into files (although it could be). I resort to constructing a dictionary as a tidy dataframe.
 
-#### Dictionary Construction
+### Dictionary Construction  
 
 This chunk separates different columns of the word list and then appends them into our preferred dictionary format that we can use for a join.
 
@@ -622,7 +628,7 @@ lm_dict = (positive.append(negative, ignore_index = True)
 lm_dict.head(20)
 ```
 
-#### Get Sentiments
+### Get Sentiments  
 
 I use `merge` to join our data and our dictionary to create a column with our assigned sentiments.
 
@@ -801,7 +807,54 @@ ggplot(filter(sent_gdp_scale, series == 'polarity' | series == 'gdp_pca'),
 
 I first attempted to use the `fbprophet` package for some (very light and very automated) forecasting, but it didn't work well for this purpose, as business cycles are of variable length. Instead, I used the [`nowcasting`](https://cran.r-project.org/web/packages/nowcasting/nowcasting.pdf) package, which is available on CRAN and uses a dynamic factor method for estimation based on [Giannone, Reichlin, and Small (2008)](http://dept.ku.edu/~empirics/Courses/Econ844/papers/Nowcasting%20GDP.pdf).
 
-Our exercise is similar to what the New York Fed does in their w[weekly nowcasting report](https://www.newyorkfed.org/research/policy/nowcast.html), although limited access to data constrains the forecast's timeliness. In addition, the method chosen for nowcasting does not use Kalman filtering.
+Our exercise is similar to what the New York Fed does in their [weekly nowcasting report](https://www.newyorkfed.org/research/policy/nowcast.html), although limited access to data constrains our forecast's timeliness. In addition, the specific method chosen for nowcasting from the package does not use Kalman filtering, although other methods in the package do utilize Kalman filtering.
+
+### Dynamic Factor Model
+
+The dynamic factor model specification is given by:
+
+$$ x_t = \mu + \Lambda f_t + \epsilon_t$$ (1)
+
+$$ f_t = \sum_{i=1}^{p} A_i f_{t-1} + B u_t$$ (2)
+
+where $u_t \sim i.i.d. N(0, I_q)$. $x_t$ is a vector of $N$ monthly time series and $f_t$ are common factors.
+
+We use the Expectation-Maximization (EM) method, which the `nowcasting` package authors describe in [this paper](https://journal.r-project.org/archive/2019/RJ-2019-020/RJ-2019-020.pdf) in *The R Journal*. Importantly, the EM method can adjust for arbitrary patterns in missing values, which is a key issue of using the Beige Book as an indexing measure. There is no clear pattern as to which eight months out of the year the Beige Book will be released. In addition, the factors do not need to be global. Our data has four blocks of factors: global, soft, real, and labor. Note that on the EM model, the error term $\epsilon_t$ is defined as an AR(1) process, but we have to set the number of shocks to the factors `q` equal to the number of factors `r`.
+
+We can rewrite equation (1) above by first rewriting $\Lambda$ and $f_t$ as a matrix of our four factors:
+
+$$ \Lambda = \begin{pmatrix} 
+\Lambda_{S, G} & \Lambda_{S,S} & 0 & 0 \\
+\Lambda_{R, G} & 0 & \Lambda_{R,R} & 0 \\
+\Lambda_{L, G} & 0 & 0 & \Lambda_{L, L}
+\end{pmatrix}$$ (3)
+
+$$ f_t = \begin{pmatrix}
+f_t^G\\
+f_t^S\\
+f_t^R\\
+f_t^L \end{pmatrix}$$ (4)
+
+Plugging this into (1), we have
+
+$$x_t = \mu + \begin{pmatrix}
+\Lambda_{S, G} & \Lambda_{S,S} & 0 & 0 \\
+\Lambda_{R, G} & 0 & \Lambda_{R,R} & 0 \\
+\Lambda_{L, G} & 0 & 0 & \Lambda_{L, L}
+ \end{pmatrix} \begin{pmatrix}
+f_t^G \\
+f_t^S\\
+f_t^R\\
+f_t^L \end{pmatrix} + \epsilon_t $$
+
+The package uses the Expectation-Maximization algorithm to recursively estimate the model by maximum likelihood estimation until the log-likelihood function is less than $10^{-4}$.
+
+### The Mechanics of Nowcasting
+
+I used the New York Fed's list of variables in their DGSE nowcasting model as the baseline model for my specification, adding the Beige Book Index in as `BBPOLAR`. To begin the process, I load the packages and data generated from earlier.
+
+```{r}
+```
 
 
 ## To do
